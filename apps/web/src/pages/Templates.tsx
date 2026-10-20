@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,7 @@ export function TemplatesPage() {
 
   function openCreate() {
     setEditTarget(null);
+    save.reset();
     form.reset({ name: "", subject: "", body_text: "", body_html: "" });
     setOpen(true);
   }
@@ -55,10 +56,12 @@ export function TemplatesPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["templates"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["templates"] });
+      await qc.refetchQueries({ queryKey: ["templates"] });
       setOpen(false);
       setEditTarget(null);
+      form.reset();
     },
   });
 
@@ -67,8 +70,9 @@ export function TemplatesPage() {
       const { error } = await supabase.from("email_templates").update({ archived_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["templates"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["templates"] });
+      await qc.refetchQueries({ queryKey: ["templates"] });
       setDeleteTarget(null);
     },
   });
@@ -121,8 +125,14 @@ export function TemplatesPage() {
             <p className="text-xs text-slate-500">Preview</p>
             <p className="text-sm">{preview}</p>
           </Card>
-          {save.error ? <p className="text-sm text-rose-700">{(save.error as Error).message}</p> : null}
-          <Button type="submit" disabled={save.isPending}>Save</Button>
+          {save.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(save.error as Error).message || "Failed to save template"}
+            </div>
+          ) : null}
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? "Saving..." : "Save"}
+          </Button>
         </form>
       </Modal>
       <Confirm

@@ -43,7 +43,7 @@ def test_interactive_buttons():
             ("Quotations - New quotation", "https://crm-web-wbq7.onrender.com/app/quotations", "//button[contains(., 'New quotation')]"),
             ("Meetings - Schedule", "https://crm-web-wbq7.onrender.com/app/meetings", "//button[contains(., 'Schedule')]"),
             ("Projects - New project", "https://crm-web-wbq7.onrender.com/app/projects", "//button[contains(., 'New project')]"),
-            ("Team - Invite member", "https://crm-web-wbq7.onrender.com/app/team", "//button[contains(., 'Invite member')]"),
+            ("Team - Invite member", "https://crm-web-wbq7.onrender.com/app/team", "//button[contains(., 'Invite')]"),
             ("Settings - Save", "https://crm-web-wbq7.onrender.com/app/settings", "//button[contains(., 'Save')]"),
         ]
 

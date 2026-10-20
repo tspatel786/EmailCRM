@@ -73,18 +73,22 @@ export function FollowUpsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
+      const dueIso = values.due_at && values.due_at.trim() ? new Date(values.due_at).toISOString() : null;
       const { error } = await supabase.from("tasks").insert({
         ...values,
         recurrence_rule: values.recurrence_rule === "none" ? null : values.recurrence_rule,
         organization_id: org!.organization_id,
         created_by: user!.id,
-        due_at: values.due_at ? new Date(values.due_at).toISOString() : null,
+        due_at: dueIso,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: async () => {
+      setView("all");
+      await qc.invalidateQueries({ queryKey: ["tasks"] });
+      await qc.refetchQueries({ queryKey: ["tasks"] });
       setOpen(false);
+      form.reset();
     },
   });
 
@@ -116,10 +120,11 @@ export function FollowUpsPage() {
         });
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setCompletionModal(null);
       setCompletionNotes("");
-      void qc.invalidateQueries({ queryKey: ["tasks"] });
+      await qc.invalidateQueries({ queryKey: ["tasks"] });
+      await qc.refetchQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -128,8 +133,9 @@ export function FollowUpsPage() {
       const { error } = await supabase.from("tasks").update({ status: "in_progress" }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["tasks"] });
+      await qc.refetchQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -138,7 +144,20 @@ export function FollowUpsPage() {
       <PageHeader
         title="Follow-ups & tasks"
         subtitle="Overdue is derived from due date. Reminders are created by the server worker, not the browser."
-        actions={writable ? <Button onClick={() => setOpen(true)}>New task</Button> : null}
+        actions={
+          writable ? (
+            <Button
+              type="button"
+              onClick={() => {
+                create.reset();
+                form.reset({ title: "", kind: "follow_up", status: "pending", priority: "medium", reminder_email: false, recurrence_rule: "none" });
+                setOpen(true);
+              }}
+            >
+              New task
+            </Button>
+          ) : null
+        }
       />
       <div className="mb-3 flex flex-wrap gap-2">
         {(["today", "upcoming", "overdue", "all", "calendar"] as const).map((v) => (
@@ -206,6 +225,11 @@ export function FollowUpsPage() {
       )}
       <Modal open={open} title="New task" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to create task"}
+            </div>
+          ) : null}
           <Field label="Title" error={form.formState.errors.title?.message}>
             <Input {...form.register("title")} />
           </Field>
@@ -252,7 +276,9 @@ export function FollowUpsPage() {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("reminder_email")} /> Email reminder via worker
           </label>
-          <Button type="submit">Save</Button>
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "Saving..." : "Save"}
+          </Button>
         </form>
       </Modal>
       {/* H5 fix: Completion notes modal */}

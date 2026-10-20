@@ -179,8 +179,11 @@ export function QuotationsPage() {
         created_by: user!.id,
       });
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["quotes"] });
+    onSuccess: async () => {
+      setPage(1);
+      setSearch("");
+      await qc.invalidateQueries({ queryKey: ["quotes"] });
+      await qc.refetchQueries({ queryKey: ["quotes"] });
       setOpen(false);
       form.reset();
       setLineItems([{ id: "1", description: "Standard IT Support Services", quantity: 1, unit_price: 15000 }]);
@@ -327,7 +330,21 @@ export function QuotationsPage() {
               Export Excel
             </Button>
             {writable ? (
-              <Button onClick={() => setOpen(true)}>
+              <Button
+                type="button"
+                onClick={() => {
+                  create.reset();
+                  form.reset({
+                    title: "",
+                    currency: "INR",
+                    total_amount: 15000,
+                    requires_approval: true,
+                    body_html: "<p>Thank you for your business. Please review the proposal details below.</p>",
+                  });
+                  setLineItems([{ id: "1", description: "Standard IT Support Services", quantity: 1, unit_price: 15000 }]);
+                  setOpen(true);
+                }}
+              >
                 + New Quotation
               </Button>
             ) : null}
@@ -411,7 +428,12 @@ export function QuotationsPage() {
       {/* Create Quotation Modal with Line Items Editor (H9) */}
       <Modal open={open} title="New quotation" onClose={() => setOpen(false)}>
         <form className="space-y-4" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
-          <Field label="Quotation Title">
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to save quotation"}
+            </div>
+          ) : null}
+          <Field label="Quotation Title" error={form.formState.errors.title?.message}>
             <Input {...form.register("title")} required placeholder="e.g. Annual IT Support Contract" />
           </Field>
 

@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -113,14 +113,16 @@ export function CallsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
+      const calledAtIso = values.called_at && values.called_at.trim() ? new Date(values.called_at).toISOString() : new Date().toISOString();
+      const followUpIso = values.follow_up_at && values.follow_up_at.trim() ? new Date(values.follow_up_at).toISOString() : null;
       const { data, error } = await supabase
         .from("calls")
         .insert({
           ...values,
           organization_id: org!.organization_id,
           employee_id: user!.id,
-          called_at: new Date(values.called_at).toISOString(),
-          follow_up_at: values.follow_up_at ? new Date(values.follow_up_at).toISOString() : null,
+          called_at: calledAtIso,
+          follow_up_at: followUpIso,
         })
         .select()
         .single();
@@ -134,9 +136,9 @@ export function CallsPage() {
         p_outcome: values.outcome,
         p_source_table: "calls",
         p_source_id: data.id,
-        p_next_follow_up: values.follow_up_at ? new Date(values.follow_up_at).toISOString() : null,
+        p_next_follow_up: followUpIso,
       });
-      if (values.follow_up_at) {
+      if (followUpIso) {
         await supabase.from("tasks").insert({
           organization_id: org!.organization_id,
           contact_id: values.contact_id,
@@ -144,14 +146,17 @@ export function CallsPage() {
           kind: "follow_up",
           assigned_to: user!.id,
           created_by: user!.id,
-          due_at: new Date(values.follow_up_at).toISOString(),
+          due_at: followUpIso,
           priority: values.priority,
           related_call_id: data.id,
         });
       }
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["calls"] });
+    onSuccess: async () => {
+      setPage(1);
+      setSearch("");
+      await qc.invalidateQueries({ queryKey: ["calls"] });
+      await qc.refetchQueries({ queryKey: ["calls"] });
       setOpen(false);
       form.reset();
     },
@@ -167,6 +172,7 @@ export function CallsPage() {
       next_action?: string;
       follow_up_at?: string;
     }) => {
+      const followUpIso = values.follow_up_at && values.follow_up_at.trim() ? new Date(values.follow_up_at).toISOString() : null;
       const { error } = await supabase
         .from("calls")
         .update({
@@ -175,13 +181,14 @@ export function CallsPage() {
           notes: values.notes || null,
           requirements: values.requirements || null,
           next_action: values.next_action || null,
-          follow_up_at: values.follow_up_at ? new Date(values.follow_up_at).toISOString() : null,
+          follow_up_at: followUpIso,
         })
         .eq("id", values.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["calls"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["calls"] });
+      await qc.refetchQueries({ queryKey: ["calls"] });
       setEditingCall(null);
     },
   });
@@ -215,7 +222,25 @@ export function CallsPage() {
       <PageHeader
         title="Calls"
         subtitle="Manual call logging, follow-ups, and notes. tel: links allow quick browser dialing."
-        actions={writable ? <Button onClick={() => setOpen(true)}>Log call</Button> : null}
+        actions={
+          writable ? (
+            <Button
+              type="button"
+              onClick={() => {
+                create.reset();
+                form.reset({
+                  called_at: new Date().toISOString().slice(0, 16),
+                  direction: "outgoing",
+                  outcome: "answered",
+                  priority: "medium",
+                });
+                setOpen(true);
+              }}
+            >
+              Log call
+            </Button>
+          ) : null
+        }
       />
       {missed.data?.length ? (
         <Card className="mb-4 border-amber-300 bg-amber-50">
@@ -326,7 +351,12 @@ export function CallsPage() {
       {/* Log Call Modal */}
       <Modal open={open} title="Log call" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
-          <Field label="Contact">
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to log call"}
+            </div>
+          ) : null}
+          <Field label="Contact" error={form.formState.errors.contact_id?.message}>
             <Select {...form.register("contact_id")} required>
               <option value="">Select contact</option>
               {(contacts.data ?? []).map((c) => (
@@ -427,6 +457,11 @@ export function CallsPage() {
                 {update.isPending ? "Updating..." : "Update call"}
               </Button>
             </div>
+            {update.error ? (
+              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+                {(update.error as Error).message || "Failed to update call"}
+              </div>
+            ) : null}
           </form>
         )}
       </Modal>

@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -117,12 +117,16 @@ export function ProjectsPage() {
         ...values,
         organization_id: org!.organization_id,
         created_by: user!.id,
-        deadline: values.deadline || null,
+        deadline: values.deadline && values.deadline.trim() ? values.deadline.trim() : null,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["projects"] });
+    onSuccess: async () => {
+      setPage(1);
+      setSearch("");
+      setStatusFilter("");
+      await qc.invalidateQueries({ queryKey: ["projects"] });
+      await qc.refetchQueries({ queryKey: ["projects"] });
       setOpen(false);
       form.reset();
     },
@@ -140,14 +144,15 @@ export function ProjectsPage() {
         .update({
           name: values.name,
           status: values.status,
-          deadline: values.deadline || null,
+          deadline: values.deadline && values.deadline.trim() ? values.deadline.trim() : null,
           notes: values.notes || null,
         })
         .eq("id", selectedProject!.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["projects"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["projects"] });
+      await qc.refetchQueries({ queryKey: ["projects"] });
       setSelectedProject(null);
     },
   });
@@ -252,7 +257,20 @@ export function ProjectsPage() {
       <PageHeader
         title="Projects"
         subtitle="Track delivery projects, team assignment, and milestones."
-        actions={writable ? <Button onClick={() => setOpen(true)}>New project</Button> : null}
+        actions={
+          writable ? (
+            <Button
+              type="button"
+              onClick={() => {
+                create.reset();
+                form.reset({ name: "", status: "planning" });
+                setOpen(true);
+              }}
+            >
+              New project
+            </Button>
+          ) : null
+        }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -324,6 +342,11 @@ export function ProjectsPage() {
       {/* New Project Modal */}
       <Modal open={open} title="New project" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to create project"}
+            </div>
+          ) : null}
           <Field label="Name" error={form.formState.errors.name?.message}>
             <Input {...form.register("name")} />
           </Field>
@@ -352,6 +375,11 @@ export function ProjectsPage() {
           <div className="space-y-6">
             {/* Edit Details */}
             <form className="space-y-3 border-b border-slate-200 pb-4" onSubmit={editForm.handleSubmit((v) => updateProject.mutate(v))}>
+              {updateProject.error ? (
+                <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+                  {(updateProject.error as Error).message || "Failed to update project"}
+                </div>
+              ) : null}
               <h3 className="font-semibold text-slate-800">Project Details</h3>
               <Field label="Project Name">
                 <Input {...editForm.register("name")} required />

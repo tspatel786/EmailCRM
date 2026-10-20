@@ -45,12 +45,22 @@ export function DealsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
-      const { error } = await supabase.from("deals").insert({ ...values, organization_id: org!.organization_id, created_by: user!.id, owner_id: values.owner_id || user!.id });
+      const { error } = await supabase.from("deals").insert({
+        ...values,
+        contact_id: values.contact_id || null,
+        company_id: values.company_id || null,
+        owner_id: values.owner_id || user!.id,
+        expected_close_date: values.expected_close_date ? values.expected_close_date : null,
+        organization_id: org!.organization_id,
+        created_by: user!.id,
+      });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["deals"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["deals"] });
+      await qc.refetchQueries({ queryKey: ["deals"] });
       setOpen(false);
+      form.reset();
     },
   });
 
@@ -135,7 +145,14 @@ export function DealsPage() {
               Export Excel
             </Button>
             {writable ? (
-              <Button onClick={() => setOpen(true)}>
+              <Button
+                type="button"
+                onClick={() => {
+                  create.reset();
+                  form.reset({ title: "", stage: "new_lead", estimated_value: 0, currency: "INR", probability: 10 });
+                  setOpen(true);
+                }}
+              >
                 + New Deal
               </Button>
             ) : null}
@@ -191,7 +208,12 @@ export function DealsPage() {
       )}
       <Modal open={open} title="New deal" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
-          <Field label="Title">
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to save deal"}
+            </div>
+          ) : null}
+          <Field label="Title" error={form.formState.errors.title?.message}>
             <Input {...form.register("title")} />
           </Field>
           <Field label="Contact">
@@ -213,7 +235,9 @@ export function DealsPage() {
           <Field label="Probability">
             <Input type="number" min={0} max={100} {...form.register("probability")} />
           </Field>
-          <Button type="submit">Save</Button>
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "Saving..." : "Save"}
+          </Button>
         </form>
       </Modal>
       {/* H5 fix: Loss reason modal replaces window.prompt() */}

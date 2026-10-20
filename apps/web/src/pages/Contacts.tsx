@@ -119,10 +119,15 @@ export function ContactsPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["contacts"] });
+    onSuccess: async () => {
+      setPage(0);
+      setQ("");
+      setStatus("");
+      await qc.invalidateQueries({ queryKey: ["contacts"] });
+      await qc.refetchQueries({ queryKey: ["contacts"] });
       setOpen(false);
       form.reset();
+      setDupWarning(null);
     },
   });
 
@@ -141,7 +146,15 @@ export function ContactsPage() {
               {exporting ? "Exporting…" : "Export Excel"}
             </Button>
             {writable ? (
-              <Button type="button" onClick={() => setOpen(true)}>
+              <Button
+                type="button"
+                onClick={() => {
+                  setDupWarning(null);
+                  create.reset();
+                  form.reset();
+                  setOpen(true);
+                }}
+              >
                 + New Contact
               </Button>
             ) : null}
@@ -220,14 +233,23 @@ export function ContactsPage() {
       )}
       <Modal open={open} title="New contact" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
-          {dupWarning ? <p className="text-sm text-rose-700">{dupWarning}</p> : null}
+          {dupWarning ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {dupWarning}
+            </div>
+          ) : null}
+          {create.error && !dupWarning ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to save contact"}
+            </div>
+          ) : null}
           <Field label="Full name" error={form.formState.errors.full_name?.message}>
             <Input {...form.register("full_name")} />
           </Field>
           <Field label="Company">
             <Input {...form.register("company_name")} />
           </Field>
-          <Field label="Email">
+          <Field label="Email" error={form.formState.errors.primary_email?.message}>
             <Input type="email" {...form.register("primary_email")} />
           </Field>
           <Field label="Phone">
@@ -275,7 +297,7 @@ export function ContactsPage() {
             <Textarea {...form.register("notes")} />
           </Field>
           <Button type="submit" disabled={create.isPending}>
-            Save
+            {create.isPending ? "Saving..." : "Save"}
           </Button>
         </form>
       </Modal>

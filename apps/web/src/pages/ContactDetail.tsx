@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -24,6 +24,7 @@ const tabs = [
 
 export function ContactDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { org, user } = useSession();
   const writable = canWrite(org?.role);
   const qc = useQueryClient();
@@ -160,9 +161,12 @@ export function ContactDetailPage() {
         p_next_follow_up: null,
       });
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["contact", id] });
-      void qc.invalidateQueries({ queryKey: ["timeline", id] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["contact", id] });
+      await qc.refetchQueries({ queryKey: ["contact", id] });
+      await qc.invalidateQueries({ queryKey: ["timeline", id] });
+      await qc.refetchQueries({ queryKey: ["timeline", id] });
+      await qc.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 
@@ -192,7 +196,11 @@ export function ContactDetailPage() {
       const { error } = await supabase.from("contacts").update({ archived_at: new Date().toISOString(), lifecycle: "archived" }).eq("id", id!);
       if (error) throw error;
     },
-    onSuccess: () => setConfirmArchive(false),
+    onSuccess: async () => {
+      setConfirmArchive(false);
+      await qc.invalidateQueries({ queryKey: ["contacts"] });
+      navigate("/app/contacts");
+    },
   });
 
   if (contact.isLoading) return <Spinner />;
@@ -357,7 +365,7 @@ export function ContactDetailPage() {
           </div>
           {writable ? (
             <Button onClick={() => saveDetails.mutate()} disabled={saveDetails.isPending}>
-              Save details
+              {saveDetails.isPending ? "Saving details..." : "Save details"}
             </Button>
           ) : null}
           {saveDetails.error ? <p className="text-sm text-rose-700">{(saveDetails.error as Error).message}</p> : null}

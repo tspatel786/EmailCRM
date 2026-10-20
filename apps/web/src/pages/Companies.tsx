@@ -48,8 +48,11 @@ export function CompaniesPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["companies"] });
+    onSuccess: async () => {
+      setPage(1);
+      setQ("");
+      await qc.invalidateQueries({ queryKey: ["companies"] });
+      await qc.refetchQueries({ queryKey: ["companies"] });
       setOpen(false);
       form.reset();
     },
@@ -110,7 +113,14 @@ export function CompaniesPage() {
               {exporting ? "Exporting…" : "Export Excel"}
             </Button>
             {writable ? (
-              <Button onClick={() => setOpen(true)} type="button">
+              <Button
+                onClick={() => {
+                  create.reset();
+                  form.reset();
+                  setOpen(true);
+                }}
+                type="button"
+              >
                 + New Company
               </Button>
             ) : null}
@@ -177,6 +187,11 @@ export function CompaniesPage() {
 
       <Modal open={open} title="New company" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to save company"}
+            </div>
+          ) : null}
           <Field label="Name" error={form.formState.errors.name?.message}>
             <Input {...form.register("name")} />
           </Field>

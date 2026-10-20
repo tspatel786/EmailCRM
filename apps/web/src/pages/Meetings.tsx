@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +38,7 @@ export function MeetingsPage() {
 
   function openCreate() {
     setEditTarget(null);
+    save.reset();
     form.reset({ title: "", starts_at: new Date().toISOString().slice(0, 16), status: "scheduled" });
     setOpen(true);
   }
@@ -61,10 +62,12 @@ export function MeetingsPage() {
 
   const save = useMutation({
     mutationFn: async (values: Form) => {
+      const startsIso = values.starts_at && values.starts_at.trim() ? new Date(values.starts_at).toISOString() : new Date().toISOString();
+      const endsIso = values.ends_at && values.ends_at.trim() ? new Date(values.ends_at).toISOString() : null;
       const payload = {
         ...values,
-        starts_at: new Date(values.starts_at).toISOString(),
-        ends_at: values.ends_at ? new Date(values.ends_at).toISOString() : null,
+        starts_at: startsIso,
+        ends_at: endsIso,
       };
       if (editTarget) {
         const { error } = await supabase.from("meetings").update(payload).eq("id", editTarget.id);
@@ -91,10 +94,12 @@ export function MeetingsPage() {
         }
       }
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["meetings"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["meetings"] });
+      await qc.refetchQueries({ queryKey: ["meetings"] });
       setOpen(false);
       setEditTarget(null);
+      form.reset();
     },
   });
 
@@ -103,8 +108,9 @@ export function MeetingsPage() {
       const { error } = await supabase.from("meetings").update({ status: "cancelled" }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["meetings"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["meetings"] });
+      await qc.refetchQueries({ queryKey: ["meetings"] });
       setCancelTarget(null);
     },
   });
@@ -162,7 +168,12 @@ export function MeetingsPage() {
       )}
       <Modal open={open} title={editTarget ? "Edit meeting" : "Schedule meeting"} onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => save.mutate(v))}>
-          <Field label="Title">
+          {save.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(save.error as Error).message || "Failed to save meeting"}
+            </div>
+          ) : null}
+          <Field label="Title" error={form.formState.errors.title?.message}>
             <Input {...form.register("title")} />
           </Field>
           <Field label="Contact">
@@ -200,8 +211,9 @@ export function MeetingsPage() {
           <Field label="Outcome">
             <Input {...form.register("outcome")} placeholder="Summary of what was decided" />
           </Field>
-          {save.error ? <p className="text-sm text-rose-700">{(save.error as Error).message}</p> : null}
-          <Button type="submit" disabled={save.isPending}>Save</Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? "Saving..." : "Save"}
+          </Button>
         </form>
       </Modal>
       <Confirm

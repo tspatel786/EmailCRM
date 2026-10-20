@@ -45,17 +45,20 @@ export function CampaignsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
+      const scheduledIso = values.scheduled_at && values.scheduled_at.trim() ? new Date(values.scheduled_at).toISOString() : null;
       const { error } = await supabase.from("campaigns").insert({
         ...values,
         body_html: DOMPurify.sanitize(values.body_html || ""),
         organization_id: org!.organization_id,
-        scheduled_at: values.scheduled_at ? new Date(values.scheduled_at).toISOString() : null,
+        scheduled_at: scheduledIso,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["campaigns"] });
+      await qc.refetchQueries({ queryKey: ["campaigns"] });
       setOpen(false);
+      form.reset();
     },
   });
 
@@ -64,7 +67,20 @@ export function CampaignsPage() {
       <PageHeader
         title="Campaigns"
         subtitle="Queueing is confirmed server-side. Unknown/withdrawn consent is never mailed when consent is required."
-        actions={manage ? <Button onClick={() => setOpen(true)}>New campaign</Button> : null}
+        actions={
+          manage ? (
+            <Button
+              type="button"
+              onClick={() => {
+                create.reset();
+                form.reset({ name: "", subject: "", body_text: "", requires_consent: true });
+                setOpen(true);
+              }}
+            >
+              New campaign
+            </Button>
+          ) : null
+        }
       />
       {!list.data?.length ? (
         <Empty title="No campaigns" />
@@ -100,7 +116,12 @@ export function CampaignsPage() {
       )}
       <Modal open={open} title="New campaign" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
-          <Field label="Name">
+          {create.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(create.error as Error).message || "Failed to create campaign"}
+            </div>
+          ) : null}
+          <Field label="Name" error={form.formState.errors.name?.message}>
             <Input {...form.register("name")} />
           </Field>
           <Field label="Template">
@@ -146,7 +167,9 @@ export function CampaignsPage() {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("requires_consent")} /> Require granted consent
           </label>
-          <Button type="submit">Save draft</Button>
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "Saving..." : "Save draft"}
+          </Button>
         </form>
       </Modal>
     </div>
@@ -221,7 +244,7 @@ export function CampaignDetailPage() {
                     "Error Reason": j.last_error || "None",
                     "Scheduled Date": j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "Immediate",
                   }));
-                  downloadWorkbook(`SMPatel_Campaign_${c.title.replace(/\s+/g, "_")}.xlsx`, rows, "Campaign Results");
+                  downloadWorkbook(`SMPatel_Campaign_${(c.name || "Campaign").replace(/\s+/g, "_")}.xlsx`, rows, "Campaign Results");
                 }}
               >
                 Export Results
