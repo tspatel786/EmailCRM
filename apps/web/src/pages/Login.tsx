@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { Globe, Phone, Mail, MapPin, ShieldCheck, ArrowRight, Eye, EyeOff, Lock, User } from "lucide-react";
+import { ThreeBackground } from "../components/ThreeBackground";
+import { Globe, Phone, Mail, MapPin, ShieldCheck, ArrowRight, Eye, EyeOff, Lock, User, Sparkles } from "lucide-react";
 
 export function LoginPage() {
   const { session, loading } = useSession();
@@ -15,53 +16,48 @@ export function LoginPage() {
   if (!loading && session) return <Navigate to="/app" replace />;
 
   return (
-    <div className="min-h-screen bg-[#070b14] relative flex flex-col justify-between p-4 sm:p-6 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-hidden">
-      {/* Dynamic Animated Ambient Background Orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Amber Orb Top Center */}
-        <div className="absolute -top-32 left-1/3 w-[600px] h-[450px] bg-gradient-to-br from-amber-500/20 to-amber-600/5 blur-[120px] rounded-full animate-float-slow" />
-        {/* Deep Cyan / Indigo Orb Bottom Right */}
-        <div className="absolute -bottom-32 right-10 w-[550px] h-[450px] bg-gradient-to-tr from-cyan-500/15 via-blue-600/10 to-transparent blur-[130px] rounded-full animate-float-reverse" />
-        {/* Subtle Violet Center Pulse */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-amber-400/5 blur-[150px] rounded-full animate-pulse-glow" />
-      </div>
+    <div className="relative min-h-screen bg-[#070b14] flex flex-col justify-between p-4 sm:p-6 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-hidden">
+      {/* Interactive 3D Animated Background (Three.js with colorful floating shapes & parallax) */}
+      <ThreeBackground />
+
+      {/* Subtle radial vignette overlay */}
+      <div className="fixed inset-0 pointer-events-none z-[1] bg-[radial-gradient(circle_at_center,transparent_20%,rgba(7,11,20,0.6)_100%)]" />
 
       {/* Top Navbar */}
-      <header className="relative z-10 flex items-center justify-between max-w-6xl mx-auto w-full py-3">
+      <header className="relative z-10 flex items-center justify-between max-w-6xl mx-auto w-full py-2 sm:py-3">
         <a
           href="https://smpatelithub.in"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors"
         >
-          <div className="p-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20 shadow-sm">
+          <div className="p-1.5 rounded-xl bg-slate-900/80 border border-amber-400/30 shadow-md backdrop-blur-md">
             <Globe size={15} />
           </div>
-          <span className="tracking-tight">smpatelithub.in</span>
+          <span className="tracking-tight font-medium">smpatelithub.in</span>
         </a>
         <div className="flex items-center gap-3">
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-400">
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-300">
             <MapPin size={13} className="text-amber-400" /> Solapur, Maharashtra
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300 border border-amber-400/25 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 backdrop-blur-md px-3 py-1 text-xs font-semibold text-amber-300 border border-amber-400/30 shadow-md">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Enterprise CRM
           </span>
         </div>
       </header>
 
-      {/* Center Login Container with Entrance Animation */}
-      <main className="relative z-10 w-full max-w-md mx-auto my-auto py-6 animate-in fade-in duration-500">
-        {/* Brand Header with Glowing Emblem */}
+      {/* Center 3D-Card Container */}
+      <main className="relative z-10 w-full max-w-md mx-auto my-auto py-4 sm:py-6">
+        {/* Brand Header with Glowing 3D-Halo Emblem */}
         <div className="mb-6 text-center">
-          <div className="relative inline-block mb-3.5">
-            {/* Subtle rotating glow behind logo */}
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-500/40 via-amber-400/20 to-blue-500/30 blur-md opacity-75 animate-pulse-glow" />
-            <div className="relative inline-flex p-3 rounded-2xl bg-white shadow-2xl shadow-amber-500/10 border border-slate-700/60 transition-transform duration-300 hover:scale-105">
+          <div className="relative inline-block mb-3">
+            <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-r from-amber-500/40 via-cyan-400/20 to-purple-500/30 blur-lg opacity-80 animate-pulse-glow" />
+            <div className="relative inline-flex p-3 rounded-2xl bg-white/95 shadow-2xl border border-slate-700/60 backdrop-blur-md transition-transform duration-300 hover:scale-105">
               <img
                 src="/logo.png"
                 alt="S.M.PATEL IT HUB"
-                className="h-14 sm:h-16 w-auto max-w-[200px] object-contain"
+                className="h-13 sm:h-15 w-auto max-w-[190px] object-contain"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = "/favicon.png";
                 }}
@@ -71,19 +67,20 @@ export function LoginPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-['Space_Grotesk']">
             S.M.PATEL IT HUB
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            Enterprise Client Relationship & Sales Management System
+          <p className="mt-1 text-xs sm:text-sm text-slate-300 flex items-center justify-center gap-1.5">
+            <Sparkles size={13} className="text-amber-400" />
+            <span>Enterprise Client Relationship & Sales Management</span>
           </p>
         </div>
 
-        {/* Login Box */}
-        <div className="rounded-3xl border border-slate-800/90 bg-slate-900/85 p-6 sm:p-8 backdrop-blur-xl shadow-2xl shadow-black/80 transition-all duration-200">
+        {/* Glassmorphic Login Card */}
+        <div className="rounded-3xl border border-slate-700/60 bg-slate-900/75 p-6 sm:p-8 backdrop-blur-xl shadow-2xl shadow-black/90 transition-all duration-300 hover:border-slate-700/80">
           <div className="mb-5 border-b border-slate-800/80 pb-4">
             <h2 className="text-base sm:text-lg font-bold text-white font-['Space_Grotesk']">
               Sign In to CRM Portal
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Please enter your authorized credentials to continue
+              Enter your authorized email and password to access the portal
             </p>
           </div>
 
@@ -99,14 +96,14 @@ export function LoginPage() {
             }}
           >
             {error && (
-              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs sm:text-sm text-rose-300 font-medium animate-in fade-in duration-200">
+              <div className="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-xs sm:text-sm text-rose-300 font-medium animate-in fade-in duration-200">
                 {error}
               </div>
             )}
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Email Address
+                Work Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -117,7 +114,7 @@ export function LoginPage() {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email address"
+                  placeholder="name@company.com"
                   required
                   className="w-full rounded-xl border border-slate-700/80 bg-slate-800/60 pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 focus:outline-none transition shadow-inner"
                 />
@@ -137,7 +134,7 @@ export function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="••••••••••••"
                   required
                   className="w-full rounded-xl border border-slate-700/80 bg-slate-800/60 pl-10 pr-11 py-3 text-sm text-white placeholder-slate-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 focus:outline-none transition shadow-inner"
                 />
@@ -157,31 +154,32 @@ export function LoginPage() {
               disabled={busy}
               className="shimmer-btn-fx w-full mt-2 bg-gradient-to-r from-amber-500 via-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer select-none"
             >
-              {busy ? "Authenticating…" : "Sign In to CRM"} <ArrowRight size={16} />
+              {busy ? "Authenticating…" : "Login"} <ArrowRight size={16} />
             </button>
           </form>
 
-          <div className="mt-5 flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-800/70">
+          <div className="mt-5 flex items-center justify-between text-xs text-slate-400 pt-4 border-t border-slate-800/80">
             <Link className="text-amber-400 hover:underline hover:text-amber-300 transition" to="/forgot-password">
-              Forgot password?
+              Forgot Password?
             </Link>
             <a
-              href="mailto:sales@smpatelithub.in"
-              className="text-slate-400 hover:text-slate-200 transition"
+              href="mailto:sales@smpatelithub.in?subject=New%20CRM%20Account%20Request"
+              className="text-amber-400 hover:underline hover:text-amber-300 transition"
+              title="Request a new CRM user account from your administrator"
             >
-              Need access? Contact Admin
+              Create Account
             </a>
           </div>
         </div>
       </main>
 
-      {/* Footer Details */}
-      <footer className="relative z-10 max-w-5xl mx-auto w-full py-4 text-center text-xs text-slate-500 border-t border-slate-800/60 mt-4">
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-2">
-          <span className="flex items-center gap-1.5 text-slate-400">
+      {/* Footer */}
+      <footer className="relative z-10 max-w-5xl mx-auto w-full py-3 text-center text-xs text-slate-400 border-t border-slate-800/60 mt-4">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-1.5">
+          <span className="flex items-center gap-1.5 text-slate-300">
             <Phone size={13} className="text-amber-400" /> +91 90964 27821
           </span>
-          <span className="flex items-center gap-1.5 text-slate-400">
+          <span className="flex items-center gap-1.5 text-slate-300">
             <Mail size={13} className="text-amber-400" /> sales@smpatelithub.in / info@smpatelithub.in
           </span>
           <a
@@ -193,7 +191,7 @@ export function LoginPage() {
             <Globe size={13} /> www.smpatelithub.in
           </a>
         </div>
-        <div>
+        <div className="text-slate-500">
           © {new Date().getFullYear()} S.M.PATEL IT HUB • Solapur, Maharashtra, India • All rights reserved.
         </div>
       </footer>
