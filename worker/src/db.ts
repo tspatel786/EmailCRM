@@ -4,5 +4,5 @@ import { env } from "./env.js";
 
 export const admin = createClient(env.supabaseUrl, env.serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
-  realtime: { transport: WebSocket },
+  realtime: { transport: WebSocket as any },
 });

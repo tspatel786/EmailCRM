@@ -86,45 +86,60 @@ export function CampaignsPage() {
         <Empty title="No campaigns" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="py-2">Name</th>
-                <th>Status</th>
-                <th>Queued</th>
-                <th>SMTP accepted</th>
-                <th>Failed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="py-2">
-                    <Link className="text-brand-800 hover:underline" to={`/app/campaigns/${c.id}`}>
-                      {c.name}
-                    </Link>
-                  </td>
-                  <td>{c.status}</td>
-                  <td>{c.queued_count}</td>
-                  <td>{c.sent_count}</td>
-                  <td>{c.failed_count}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 border-b border-slate-200 pb-2">
+                  <th className="py-2.5">Name</th>
+                  <th>Status</th>
+                  <th>Scheduled Send (नियोजित वेळ)</th>
+                  <th>Queued</th>
+                  <th>Sent</th>
+                  <th>Failed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {list.data.map((c) => (
+                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50/60 transition">
+                    <td className="py-3 font-medium">
+                      <Link className="text-amber-600 hover:text-amber-700 hover:underline font-semibold" to={`/app/campaigns/${c.id}`}>
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        c.status === "scheduled" ? "bg-amber-100 text-amber-800 border border-amber-300" :
+                        c.status === "sending" || c.status === "queued" ? "bg-blue-100 text-blue-800 border border-blue-200" :
+                        c.status === "completed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+                        "bg-slate-100 text-slate-700"
+                      }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="text-xs text-slate-600 font-medium">
+                      {c.scheduled_at ? `📅 ${new Date(c.scheduled_at).toLocaleString()}` : "⚡ Immediate (लगेच)"}
+                    </td>
+                    <td>{c.queued_count}</td>
+                    <td className="text-emerald-600 font-semibold">{c.sent_count}</td>
+                    <td className="text-rose-600 font-semibold">{c.failed_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
-      <Modal open={open} title="New campaign" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+      <Modal open={open} title="New Campaign (नवीन मोहीम)" onClose={() => setOpen(false)}>
+        <form className="space-y-3.5" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to create campaign"}
             </div>
           ) : null}
-          <Field label="Name" error={form.formState.errors.name?.message}>
-            <Input {...form.register("name")} />
+          <Field label="Campaign Name" error={form.formState.errors.name?.message}>
+            <Input placeholder="e.g. Diwali IT Services Offer" {...form.register("name")} />
           </Field>
-          <Field label="Template">
+          <Field label="Template (Optional)">
             <Select
               {...form.register("template_id")}
               onChange={(e) => {
@@ -137,7 +152,7 @@ export function CampaignsPage() {
                 }
               }}
             >
-              <option value="">None</option>
+              <option value="">None (Custom Email)</option>
               {(templates.data ?? []).map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -156,19 +171,27 @@ export function CampaignsPage() {
             </Select>
           </Field>
           <Field label="Subject">
-            <Input {...form.register("subject")} />
+            <Input placeholder="Email Subject line" {...form.register("subject")} />
           </Field>
           <Field label="Body">
-            <Textarea rows={6} {...form.register("body_text")} />
+            <Textarea rows={5} placeholder="Compose your email message..." {...form.register("body_text")} />
           </Field>
-          <Field label="Schedule (optional, org timezone interpretation is UTC storage)">
-            <Input type="datetime-local" {...form.register("scheduled_at")} />
-          </Field>
-          <label className="flex items-center gap-2 text-sm">
+
+          {/* Schedule Date & Time section */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2">
+            <Field label="Schedule Delivery Date & Time (मेल कधी पाठवायचा - तारीख व वेळ)">
+              <Input type="datetime-local" {...form.register("scheduled_at")} />
+            </Field>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              💡 <strong>टीप:</strong> जर तुम्हाला मेल लगेच पाठवायचा असेल तर तारीख-वेळ रिकामी ठेवा (Immediate). जर भविष्यात विशिष्ट दिवशी व वेळी आपोआप पाठवायचा असेल तर वरील तारीख व वेळ निवडा.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-slate-700">
             <input type="checkbox" {...form.register("requires_consent")} /> Require granted consent
           </label>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save draft"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Campaign Draft"}
           </Button>
         </form>
       </Modal>
@@ -222,7 +245,11 @@ export function CampaignDetailPage() {
         actions={
           manage ? (
             <>
-              {["draft", "scheduled", "paused"].includes(c.status) ? <Button onClick={() => setConfirmQueue(true)}>Queue send</Button> : null}
+              {["draft", "scheduled", "paused"].includes(c.status) ? (
+                <Button onClick={() => setConfirmQueue(true)}>
+                  {c.scheduled_at && new Date(c.scheduled_at) > new Date() ? "Confirm & Schedule" : "Queue Send"}
+                </Button>
+              ) : null}
               {c.status === "sending" || c.status === "queued" ? (
                 <Button variant="secondary" onClick={() => pause.mutate("paused")}>
                   Pause
@@ -253,6 +280,24 @@ export function CampaignDetailPage() {
           ) : null
         }
       />
+
+      {/* Prominent Scheduling Information Banner */}
+      {c.scheduled_at && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 p-4 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">⏰</span>
+            <div>
+              <div className="font-bold text-sm">Scheduled Email Campaign (नियोजित मोहीम)</div>
+              <div className="text-xs text-amber-900 mt-0.5">
+                Automatically scheduled to dispatch on: <strong>{new Date(c.scheduled_at).toLocaleString()}</strong>
+              </div>
+            </div>
+          </div>
+          <span className="rounded-full bg-amber-200/90 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs">
+            {new Date(c.scheduled_at) > new Date() ? "⏳ Awaiting Scheduled Time" : "✅ Dispatched"}
+          </span>
+        </div>
+      )}
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
         {[
           ["Recipients", c.recipient_count],
