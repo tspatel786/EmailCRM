@@ -22,6 +22,7 @@ async function main() {
     throw new Error("Set SUPABASE_SERVICE_ROLE_KEY before seeding");
   }
 
+  const smPatelOwner = await upsertUser("sales@smpatelithub.in", "S.M. Patel Sales");
   const ownerId = await upsertUser("owner@demo.local", "Demo Owner");
   const managerId = await upsertUser("manager@demo.local", "Sales Manager");
   const execId = await upsertUser("exec@demo.local", "Sales Executive");
@@ -30,7 +31,7 @@ async function main() {
 
   const { data: orgA, error: orgErr } = await admin
     .from("organizations")
-    .upsert({ slug: "acme-it", name: "Acme IT Services", timezone: "Asia/Kolkata", daily_email_limit: 100 }, { onConflict: "slug" })
+    .upsert({ slug: "smpatel-it-hub", name: "S.M.PATEL IT HUB", timezone: "Asia/Kolkata", daily_email_limit: 100, website: "https://smpatelithub.in" }, { onConflict: "slug" })
     .select()
     .single();
   if (orgErr) throw orgErr;
@@ -42,6 +43,7 @@ async function main() {
     .single();
 
   const members = [
+    { organization_id: orgA.id, user_id: smPatelOwner, role: "owner", status: "active", accepted_at: new Date().toISOString() },
     { organization_id: orgA.id, user_id: ownerId, role: "owner", status: "active", accepted_at: new Date().toISOString() },
     { organization_id: orgA.id, user_id: managerId, role: "sales_manager", status: "active", accepted_at: new Date().toISOString() },
     { organization_id: orgA.id, user_id: execId, role: "sales_executive", status: "active", accepted_at: new Date().toISOString() },

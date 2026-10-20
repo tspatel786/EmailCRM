@@ -9,6 +9,12 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+      <div className="mb-4 text-center">
+        <div className="inline-block p-2 rounded-2xl bg-white shadow-md border border-slate-200 mb-2">
+          <img src="/logo.png" alt="S.M.PATEL IT HUB" className="h-12 w-auto mx-auto object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/favicon.png"; }} />
+        </div>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 font-['Space_Grotesk']">S.M.PATEL IT HUB</h2>
+      </div>
       <PageHeader title="Reset password" subtitle="We will email a reset link if the account exists." />
       <Card>
         {sent ? (
@@ -24,17 +30,17 @@ export function ForgotPasswordPage() {
               setSent(true);
             }}
           >
-            <Field label="Email">
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Field label="Work Email">
+              <Input type="email" placeholder="sales@smpatelithub.in" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </Field>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold">
               Send reset link
             </Button>
           </form>
         )}
-        <p className="mt-4 text-sm">
-          <Link className="text-brand-700" to="/login">
-            Back to sign in
+        <p className="mt-4 text-sm text-center">
+          <Link className="text-amber-600 font-medium hover:underline" to="/login">
+            ← Back to sign in
           </Link>
         </p>
       </Card>

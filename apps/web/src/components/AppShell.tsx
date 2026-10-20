@@ -19,6 +19,7 @@ import {
   Bell,
   LogOut,
   Menu,
+  ExternalLink,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -82,35 +83,83 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[260px_1fr]">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-slate-900 text-slate-100 transition lg:static lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col justify-between overflow-y-auto bg-slate-900 text-slate-100 transition lg:static lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-16 items-center px-5 text-lg font-semibold tracking-tight">Acme IT CRM</div>
-        <nav className="space-y-0.5 px-3 pb-6">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${isActive ? "bg-brand-700 text-white" : "text-slate-300 hover:bg-slate-800"}`
-              }
+        <div>
+          {/* S.M.PATEL IT HUB Brand Header */}
+          <div className="flex items-center gap-3 border-b border-slate-800/80 px-4 py-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-md">
+              <img
+                src="/logo.png"
+                alt="S.M.PATEL IT HUB"
+                className="h-9 w-9 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/favicon.png";
+                }}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold tracking-tight text-white font-['Space_Grotesk']">
+                S.M.PATEL IT HUB
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Enterprise CRM
+              </div>
+            </div>
+          </div>
+
+          <nav className="space-y-0.5 px-3 py-4">
+            {nav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                    isActive
+                      ? "bg-amber-500 font-semibold text-slate-950 shadow-sm"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`
+                }
+              >
+                <item.icon size={16} />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        {/* Sidebar Footer with Company Contact and Website */}
+        <div className="border-t border-slate-800/80 p-3 text-xs text-slate-400">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-200">S.M.PATEL IT HUB</span>
+              <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">MH-IN</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">Solapur, Maharashtra • +91 90964 27821</p>
+            <a
+              href="https://smpatelithub.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-400/20 transition"
             >
-              <item.icon size={16} />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+              <ExternalLink size={12} /> Visit smpatelithub.in
+            </a>
+          </div>
+        </div>
       </aside>
+
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
-          <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur shadow-sm">
+          <button className="lg:hidden text-slate-700" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu size={20} />
           </button>
           <div className="flex flex-1 items-center gap-3">
             {memberships.length > 1 ? (
               <select
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-medium text-slate-800"
                 value={org?.organization_id}
                 onChange={(e) => setOrgId(e.target.value)}
               >
@@ -121,9 +170,21 @@ export function AppShell() {
                 ))}
               </select>
             ) : (
-              <span className="text-sm font-medium text-slate-600">{org?.organizations.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-900">{org?.organizations.name}</span>
+                <span className="hidden rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800 sm:inline">
+                  {org?.role}
+                </span>
+              </div>
             )}
-            <span className="hidden rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">{org?.role}</span>
+            <a
+              href="https://smpatelithub.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 sm:inline-flex transition"
+            >
+              <ExternalLink size={12} className="text-amber-600" /> smpatelithub.in
+            </a>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">

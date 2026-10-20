@@ -10,6 +10,12 @@ import sys
 import requests
 import json
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 RENDER_API_BASE = "https://api.render.com/v1"
 PROJECT_ID = "prj-dbbhf4e7bikc738j76a0"
 REPO_URL = "https://github.com/tspatel786/EmailCRM"
@@ -52,49 +58,83 @@ def main():
         return
     
     owner_id = owners[0].get("owner", {}).get("id") or owners[0].get("id")
-    print(f"✓ Authenticated as: {owners[0].get('owner', {}).get('name', 'Owner')} (ID: {owner_id})")
+    print(f"[OK] Authenticated as: {owners[0].get('owner', {}).get('name', 'Owner')} (ID: {owner_id})")
 
     print("\n[2/3] Checking Project prj-dbbhf4e7bikc738j76a0...")
     proj_resp = requests.get(f"{RENDER_API_BASE}/projects/{PROJECT_ID}", headers=headers)
     if proj_resp.status_code == 200:
         proj_data = proj_resp.json()
-        print(f"✓ Project Found: {proj_data.get('name', 'CRM')}")
+        print(f"[OK] Project Found: {proj_data.get('name', 'CRM')}")
     else:
         print(f"Note: Could not inspect project {PROJECT_ID} directly (HTTP {proj_resp.status_code}). Proceeding with Blueprint...")
 
-    print("\n[3/3] Deploying Blueprint from GitHub Repository...")
-    blueprint_payload = {
-        "name": "itservices-crm-blueprint",
+    print("\n[3/3] Creating Services on Render via API...")
+
+    # 1. Create Static Site (crm-web)
+    web_payload = {
+        "type": "static_site",
+        "name": "crm-web",
+        "ownerId": owner_id,
         "repo": REPO_URL,
         "branch": BRANCH,
-        "autoSync": True,
-        "ownerId": owner_id
+        "autoDeploy": "yes",
+        "serviceDetails": {
+            "buildCommand": "npm run build -w @crm/shared && npm run build -w @crm/web",
+            "publishPath": "apps/web/dist",
+            "pullRequestPreviewsEnabled": "no",
+            "routes": [
+                {"type": "rewrite", "source": "/*", "destination": "/index.html"}
+            ]
+        }
     }
 
-    bp_resp = requests.post(f"{RENDER_API_BASE}/blueprints", headers=headers, json=blueprint_payload)
-    if bp_resp.status_code in (200, 201):
-        bp_data = bp_resp.json()
-        bp_id = bp_data.get("id") or bp_data.get("blueprint", {}).get("id")
-        print(f"\n🎉 SUCCESS! Blueprint created on Render!")
-        print(f"Blueprint ID: {bp_id}")
-        print(f"Render is now provisioning your services (crm-web and crm-worker) from render.yaml.")
-        print(f"Check progress here: https://dashboard.render.com/project/{PROJECT_ID}")
-    elif bp_resp.status_code == 409 or "already exists" in bp_resp.text.lower():
-        print("Blueprint already exists for this repository. Triggering sync...")
-        # find blueprints
-        bps = requests.get(f"{RENDER_API_BASE}/blueprints", headers=headers)
-        if bps.status_code == 200:
-            for b in bps.json():
-                b_info = b.get("blueprint", {})
-                if b_info.get("repo") == REPO_URL:
-                    sync_resp = requests.post(f"{RENDER_API_BASE}/blueprints/{b_info.get('id')}/sync", headers=headers)
-                    print(f"Sync triggered: HTTP {sync_resp.status_code}")
-                    print("✓ Sync in progress!")
-                    return
-        print(bp_resp.text)
+    print("Creating crm-web (Static Site)...")
+    web_resp = requests.post(f"{RENDER_API_BASE}/services", headers=headers, json=web_payload)
+    if web_resp.status_code in (200, 201):
+        web_data = web_resp.json()
+        service_id = web_data.get("service", {}).get("id") or web_data.get("id")
+        service_url = web_data.get("service", {}).get("serviceDetails", {}).get("url") or web_data.get("url")
+        print(f"[SUCCESS] crm-web created! ID: {service_id}")
+        if service_url:
+            print(f"Live URL: {service_url}")
     else:
-        print(f"API Response: HTTP {bp_resp.status_code}")
-        print(bp_resp.text)
+        print(f"crm-web response: HTTP {web_resp.status_code} - {web_resp.text}")
+
+    # 2. Create Web Service (crm-worker)
+    worker_payload = {
+        "type": "web_service",
+        "name": "crm-worker",
+        "ownerId": owner_id,
+        "repo": REPO_URL,
+        "branch": BRANCH,
+        "autoDeploy": "yes",
+        "serviceDetails": {
+            "env": "node",
+            "plan": "free",
+            "healthCheckPath": "/healthz",
+            "pullRequestPreviewsEnabled": "no",
+            "envSpecificDetails": {
+                "buildCommand": "npm install && npm run build -w @crm/shared && npm run build -w @crm/worker",
+                "startCommand": "npm run start -w @crm/worker"
+            }
+        }
+    }
+
+    print("\nCreating crm-worker (Node.js Background Worker)...")
+    worker_resp = requests.post(f"{RENDER_API_BASE}/services", headers=headers, json=worker_payload)
+    if worker_resp.status_code in (200, 201):
+        worker_data = worker_resp.json()
+        w_service_id = worker_data.get("service", {}).get("id") or worker_data.get("id")
+        w_service_url = worker_data.get("service", {}).get("serviceDetails", {}).get("url") or worker_data.get("url")
+        print(f"[SUCCESS] crm-worker created! ID: {w_service_id}")
+        if w_service_url:
+            print(f"Worker URL: {w_service_url}")
+    else:
+        print(f"crm-worker response: HTTP {worker_resp.status_code} - {worker_resp.text}")
+
+    print("\n" + "=" * 60)
+    print(f"Check your dashboard: https://dashboard.render.com/project/{PROJECT_ID}")
+    print("=" * 60)
 
 if __name__ == "__main__":
     main()
