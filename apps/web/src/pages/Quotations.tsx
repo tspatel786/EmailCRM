@@ -8,6 +8,7 @@ import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money, fmtDateTime } from "../lib/format";
+import { downloadWorkbook } from "../lib/export";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
 
 type Form = z.infer<typeof quotationFormSchema>;
@@ -297,12 +298,41 @@ export function QuotationsPage() {
     return "slate";
   };
 
+  const handleExport = () => {
+    const rows = filtered.map((q, idx) => ({
+      "Sr No": idx + 1,
+      "Quotation Title": q.title || "",
+      "Status": q.status ? q.status.toUpperCase().replace("_", " ") : "",
+      "Currency": q.currency || "INR",
+      "Total Amount": q.total_amount ? Number(q.total_amount) : 0,
+      "Version": `v${q.current_version || 1}`,
+      "Requires Approval": q.requires_approval ? "Yes" : "No",
+      "Created Date": q.created_at ? fmtDateTime(q.created_at) : "",
+    }));
+    downloadWorkbook(
+      `SMPatel_Quotations_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      rows,
+      "Quotations"
+    );
+  };
+
   return (
     <div>
       <PageHeader
         title="Quotations"
         subtitle="Quotations with line items, version history, and approval workflows."
-        actions={writable ? <Button onClick={() => setOpen(true)}>New quotation</Button> : null}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleExport} disabled={!filtered.length}>
+              Export Excel
+            </Button>
+            {writable ? (
+              <Button onClick={() => setOpen(true)}>
+                + New Quotation
+              </Button>
+            ) : null}
+          </div>
+        }
       />
 
       <div className="mb-4">

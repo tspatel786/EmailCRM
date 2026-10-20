@@ -24,6 +24,52 @@ export function ContactsPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(0);
   const [dupWarning, setDupWarning] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      let query = supabase
+        .from("contacts")
+        .select("*")
+        .eq("organization_id", org!.organization_id)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false });
+      if (status) query = query.eq("lead_status", status);
+      if (q) query = query.or(`full_name.ilike.%${q}%,primary_email.ilike.%${q}%,company_name.ilike.%${q}%,primary_phone.ilike.%${q}%`);
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const formattedRows = (data ?? []).map((c, idx) => ({
+        "Sr No": idx + 1,
+        "Full Name": c.full_name || "",
+        "Company": c.company_name || "",
+        "Email": c.primary_email || "",
+        "Phone": c.primary_phone || "",
+        "City": c.city || "",
+        "Country": c.country || "",
+        "Service Interest": c.service_interest || "",
+        "Lead Source": c.lead_source || "",
+        "Lead Status": c.lead_status ? c.lead_status.toUpperCase().replace("_", " ") : "",
+        "Lifecycle": c.lifecycle ? c.lifecycle.toUpperCase() : "",
+        "Priority": c.priority ? c.priority.toUpperCase() : "",
+        "Consent Status": c.consent_status ? c.consent_status.toUpperCase() : "",
+        "Email Opt-In": c.email_opt_in ? "Yes" : "No",
+        "Created Date": c.created_at ? fmtDate(c.created_at) : "",
+        "Notes": c.notes || "",
+      }));
+
+      downloadWorkbook(
+        `SMPatel_Contacts_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        formattedRows,
+        "Contacts"
+      );
+    } catch (err) {
+      console.error("Export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const form = useForm<Form>({
     resolver: zodResolver(contactFormSchema),
@@ -89,13 +135,14 @@ export function ContactsPage() {
           <>
             <Button
               variant="secondary"
-              onClick={() => downloadWorkbook("contacts.xlsx", (list.data?.rows ?? []) as Record<string, unknown>[])}
+              onClick={handleExport}
+              disabled={exporting}
             >
-              Export
+              {exporting ? "Exporting…" : "Export Excel"}
             </Button>
             {writable ? (
               <Button type="button" onClick={() => setOpen(true)}>
-                New contact
+                + New Contact
               </Button>
             ) : null}
           </>

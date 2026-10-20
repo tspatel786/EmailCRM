@@ -210,8 +210,21 @@ export function CampaignDetailPage() {
                   Cancel remaining
                 </Button>
               ) : null}
-              <Button variant="secondary" onClick={() => downloadWorkbook(`campaign-${c.id}.xlsx`, (jobs.data ?? []) as Record<string, unknown>[])}>
-                Download results
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const rows = (jobs.data ?? []).map((j, idx) => ({
+                    "Sr No": idx + 1,
+                    "Recipient Email": j.to_email || "",
+                    "Delivery Status": j.status ? j.status.toUpperCase() : "",
+                    "Attempts": j.attempt_count ?? 0,
+                    "Error Reason": j.last_error || "None",
+                    "Scheduled Date": j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "Immediate",
+                  }));
+                  downloadWorkbook(`SMPatel_Campaign_${c.title.replace(/\s+/g, "_")}.xlsx`, rows, "Campaign Results");
+                }}
+              >
+                Export Results
               </Button>
             </>
           ) : null

@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { startOfMonth } from "date-fns";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
-import { downloadWorkbook } from "../lib/export";
+import { downloadMultiSheetWorkbook } from "../lib/export";
 import { money } from "../lib/format";
 import { Button, Card, Empty, PageHeader, Spinner } from "../components/ui";
 
@@ -159,15 +159,49 @@ export function DashboardPage() {
             <input type="date" className="rounded-lg border px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
             <Button
               variant="secondary"
-              onClick={() =>
-                downloadWorkbook(`dashboard-${from}-to-${to}.xlsx`, [
-                  { metric: "leads", value: c?.leads },
-                  { metric: "customers", value: c?.customers },
-                  { metric: "pipeline", value: c?.pipeline },
-                ])
-              }
+              onClick={() => {
+                if (!c) return;
+                const kpis = [
+                  { "Sr No": 1, "Metric": "Total Leads", "Value": c.leads, "Period": `${from} to ${to}` },
+                  { "Sr No": 2, "Metric": "Active Customers", "Value": c.customers, "Period": `${from} to ${to}` },
+                  { "Sr No": 3, "Metric": "New Leads This Month", "Value": c.newThisMonth, "Period": "Current Month" },
+                  { "Sr No": 4, "Metric": "Calls Logged Today", "Value": c.callsToday, "Period": "Today" },
+                  { "Sr No": 5, "Metric": "Calls Logged This Month", "Value": c.callsMonth, "Period": "Current Month" },
+                  { "Sr No": 6, "Metric": "Follow-ups Due Today", "Value": c.followToday, "Period": "Today" },
+                  { "Sr No": 7, "Metric": "Overdue Follow-ups", "Value": c.followOverdue, "Period": "All Overdue" },
+                  { "Sr No": 8, "Metric": "Emails Queued (Outbox)", "Value": c.queued, "Period": "Live Queue" },
+                  { "Sr No": 9, "Metric": "Emails Accepted (SMTP)", "Value": c.sent, "Period": `${from} to ${to}` },
+                  { "Sr No": 10, "Metric": "Emails Delivery Failed", "Value": c.failed, "Period": `${from} to ${to}` },
+                  { "Sr No": 11, "Metric": "Upcoming Meetings", "Value": c.meetings, "Period": "Scheduled" },
+                  { "Sr No": 12, "Metric": "Open Quotations", "Value": c.openQuotes, "Period": "Active" },
+                  { "Sr No": 13, "Metric": "Deals Won", "Value": c.won, "Period": `${from} to ${to}` },
+                  { "Sr No": 14, "Metric": "Deals Lost", "Value": c.lost, "Period": `${from} to ${to}` },
+                  { "Sr No": 15, "Metric": "Total Pipeline Value", "Value": money(c.pipeline), "Period": "Open Pipeline" },
+                ];
+                const sources = (query.data?.sources ?? []).map((s, idx) => ({
+                  "Sr No": idx + 1,
+                  "Lead Source": s.name || "Unknown",
+                  "Total Leads": s.n,
+                }));
+                const statuses = (query.data?.statuses ?? []).map((s, idx) => ({
+                  "Sr No": idx + 1,
+                  "Lead Status": s.name ? s.name.toUpperCase().replace("_", " ") : "Unknown",
+                  "Count": s.n,
+                }));
+                const team = (query.data?.people ?? []).map((p, idx) => ({
+                  "Sr No": idx + 1,
+                  "Team Member": p.name,
+                  "Calls Completed": p.calls,
+                }));
+                downloadMultiSheetWorkbook(`SMPatel_Dashboard_${from}_to_${to}.xlsx`, [
+                  { name: "KPI Summary", rows: kpis },
+                  { name: "Lead Sources", rows: sources },
+                  { name: "Lead Statuses", rows: statuses },
+                  { name: "Team Activity", rows: team },
+                ]);
+              }}
             >
-              Export
+              Export Analytics
             </Button>
           </>
         }

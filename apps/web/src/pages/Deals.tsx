@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money } from "../lib/format";
+import { downloadWorkbook } from "../lib/export";
 import { Badge, Button, Card, Confirm, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
 
 const STAGES = ["new_lead", "contacted", "qualified", "proposal_sent", "negotiation", "won", "lost"] as const;
@@ -101,17 +102,44 @@ export function DealsPage() {
     },
   });
 
+  const handleExport = () => {
+    const rows = (list.data ?? []).map((d, idx) => ({
+      "Sr No": idx + 1,
+      "Deal Title": d.title || "",
+      "Contact": (d.contacts as { full_name?: string } | null)?.full_name || "",
+      "Stage": d.stage ? d.stage.toUpperCase().replace("_", " ") : "",
+      "Estimated Value": d.estimated_value ? Number(d.estimated_value) : 0,
+      "Currency": d.currency || "INR",
+      "Probability (%)": d.probability ?? 10,
+      "Expected Close Date": d.expected_close_date || "",
+      "Created Date": d.created_at ? new Date(d.created_at).toLocaleDateString() : "",
+      "Lost Reason": d.loss_reason || "",
+    }));
+    downloadWorkbook(
+      `SMPatel_Deals_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      rows,
+      "Deals"
+    );
+  };
+
   return (
     <div>
       <PageHeader
         title="Deals"
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setMode(mode === "kanban" ? "list" : "kanban")}>
-              {mode === "kanban" ? "List" : "Kanban"}
+              {mode === "kanban" ? "List View" : "Kanban View"}
             </Button>
-            {writable ? <Button onClick={() => setOpen(true)}>New deal</Button> : null}
-          </>
+            <Button variant="secondary" onClick={handleExport} disabled={!list.data?.length}>
+              Export Excel
+            </Button>
+            {writable ? (
+              <Button onClick={() => setOpen(true)}>
+                + New Deal
+              </Button>
+            ) : null}
+          </div>
         }
       />
       {mode === "kanban" ? (

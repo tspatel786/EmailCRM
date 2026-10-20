@@ -1,9 +1,41 @@
 import * as XLSX from "xlsx";
 
+function autoFitColumns(rows: Record<string, unknown>[]): XLSX.ColInfo[] {
+  if (!rows || rows.length === 0 || !rows[0]) return [];
+  const keys = Object.keys(rows[0]);
+  return keys.map((key) => {
+    let maxLen = key.length;
+    for (const row of rows) {
+      const val = row[key];
+      if (val !== null && val !== undefined) {
+        const str = String(val);
+        if (str.length > maxLen) {
+          maxLen = Math.min(str.length, 60);
+        }
+      }
+    }
+    return { wch: Math.max(maxLen + 3, 12) };
+  });
+}
+
 export function downloadWorkbook(filename: string, rows: Record<string, unknown>[], sheet = "Export") {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = autoFitColumns(rows);
   XLSX.utils.book_append_sheet(wb, ws, sheet);
+  XLSX.writeFile(wb, filename);
+}
+
+export function downloadMultiSheetWorkbook(
+  filename: string,
+  sheets: Array<{ name: string; rows: Record<string, unknown>[] }>
+) {
+  const wb = XLSX.utils.book_new();
+  for (const s of sheets) {
+    const ws = XLSX.utils.json_to_sheet(s.rows.length ? s.rows : [{ Info: "No data available" }]);
+    ws["!cols"] = autoFitColumns(s.rows);
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0, 31)); // Excel limit is 31 chars for sheet name
+  }
   XLSX.writeFile(wb, filename);
 }
 

@@ -1,10 +1,11 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { companyFormSchema, canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
+import { downloadWorkbook } from "../lib/export";
 import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
 import { z } from "zod";
 
@@ -54,6 +55,45 @@ export function CompaniesPage() {
     },
   });
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      let query = supabase
+        .from("companies")
+        .select("*")
+        .eq("organization_id", org!.organization_id)
+        .is("archived_at", null)
+        .order("name");
+      if (q.trim()) query = query.ilike("name", `%${q.trim()}%`);
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const rows = (data ?? []).map((c, idx) => ({
+        "Sr No": idx + 1,
+        "Company Name": c.name || "",
+        "Industry": c.industry || "",
+        "City": c.city || "",
+        "State": c.state || "",
+        "Country": c.country || "",
+        "Website": c.website || "",
+        "Phone": c.phone || "",
+        "Created Date": c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
+      }));
+
+      downloadWorkbook(
+        `SMPatel_Companies_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        rows,
+        "Companies"
+      );
+    } catch (err) {
+      console.error("Companies export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil((list.data?.total ?? 0) / pageSize));
 
   return (
@@ -61,11 +101,20 @@ export function CompaniesPage() {
       <PageHeader
         title="Companies"
         actions={
-          writable ? (
-            <Button onClick={() => setOpen(true)} type="button">
-              New company
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "Export Excel"}
             </Button>
-          ) : null
+            {writable ? (
+              <Button onClick={() => setOpen(true)} type="button">
+                + New Company
+              </Button>
+            ) : null}
+          </div>
         }
       />
       <Input
