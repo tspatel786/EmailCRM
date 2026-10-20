@@ -12,7 +12,8 @@ export type HealthState = {
 
 export function startHealthServer(state: HealthState): ReturnType<typeof createServer> {
   const server = createServer(async (req, res) => {
-    if (req.url === "/health" || req.url === "/healthz") {
+    const url = req.url?.split("?")[0];
+    if (url === "/health" || url === "/healthz" || url === "/") {
       const { data } = await admin
         .from("worker_heartbeats")
         .select("last_seen_at")
@@ -32,6 +33,8 @@ export function startHealthServer(state: HealthState): ReturnType<typeof createS
     res.writeHead(404);
     res.end();
   });
-  server.listen(env.healthPort);
+  server.listen(env.healthPort, "0.0.0.0", () => {
+    console.info(`[health] listening on 0.0.0.0:${env.healthPort}`);
+  });
   return server;
 }
