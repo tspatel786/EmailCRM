@@ -7,6 +7,23 @@ import { supabase } from "../lib/supabase";
 import { downloadMultiSheetWorkbook } from "../lib/export";
 import { money } from "../lib/format";
 import { Button, Card, Empty, PageHeader, Spinner } from "../components/ui";
+import {
+  Users,
+  CheckCircle2,
+  UserPlus,
+  PhoneCall,
+  Phone,
+  Clock,
+  AlertTriangle,
+  Send,
+  MailCheck,
+  AlertCircle,
+  Calendar,
+  Receipt,
+  Trophy,
+  XCircle,
+  TrendingUp,
+} from "lucide-react";
 
 type Counts = {
   leads: number;
@@ -130,21 +147,21 @@ export function DashboardPage() {
 
   const tiles = c
     ? [
-        ["Total leads", c.leads],
-        ["Customers", c.customers],
-        ["New leads this month", c.newThisMonth],
-        ["Calls today", c.callsToday],
-        ["Calls this month", c.callsMonth],
-        ["Follow-ups today", c.followToday],
-        ["Overdue follow-ups", c.followOverdue],
-        ["Emails queued", c.queued],
-        ["Emails SMTP-accepted", c.sent],
-        ["Emails failed", c.failed],
-        ["Upcoming meetings", c.meetings],
-        ["Open quotations", c.openQuotes],
-        ["Won deals", c.won],
-        ["Lost deals", c.lost],
-        ["Pipeline value", money(c.pipeline)],
+        { label: "Total Leads", value: c.leads, icon: Users, color: "text-blue-600 bg-blue-50 border-blue-200" },
+        { label: "Active Customers", value: c.customers, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+        { label: "New Leads (Month)", value: c.newThisMonth, icon: UserPlus, color: "text-amber-600 bg-amber-50 border-amber-200" },
+        { label: "Calls Logged Today", value: c.callsToday, icon: PhoneCall, color: "text-teal-600 bg-teal-50 border-teal-200" },
+        { label: "Calls This Month", value: c.callsMonth, icon: Phone, color: "text-cyan-600 bg-cyan-50 border-cyan-200" },
+        { label: "Follow-ups Today", value: c.followToday, icon: Clock, color: "text-amber-600 bg-amber-50 border-amber-200" },
+        { label: "Overdue Tasks", value: c.followOverdue, icon: AlertTriangle, color: "text-rose-600 bg-rose-50 border-rose-200" },
+        { label: "Emails Queued", value: c.queued, icon: Send, color: "text-sky-600 bg-sky-50 border-sky-200" },
+        { label: "SMTP Accepted", value: c.sent, icon: MailCheck, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+        { label: "Emails Failed", value: c.failed, icon: AlertCircle, color: "text-rose-600 bg-rose-50 border-rose-200" },
+        { label: "Upcoming Meetings", value: c.meetings, icon: Calendar, color: "text-purple-600 bg-purple-50 border-purple-200" },
+        { label: "Open Quotations", value: c.openQuotes, icon: Receipt, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
+        { label: "Won Deals", value: c.won, icon: Trophy, color: "text-amber-600 bg-amber-50 border-amber-200" },
+        { label: "Lost Deals", value: c.lost, icon: XCircle, color: "text-slate-600 bg-slate-50 border-slate-200" },
+        { label: "Pipeline Value", value: money(c.pipeline), icon: TrendingUp, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
       ]
     : [];
 
@@ -212,11 +229,16 @@ export function DashboardPage() {
         <Empty title="Could not load dashboard" hint={(query.error as Error).message} />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {tiles.map(([label, value]) => (
-              <Card key={String(label)}>
-                <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-                <p className="mt-2 text-2xl font-semibold">{value}</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {tiles.map((t) => (
+              <Card key={t.label} className="card-hover-lift relative overflow-hidden flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t.label}</span>
+                  <div className={`p-2 rounded-xl border ${t.color}`}>
+                    <t.icon size={16} />
+                  </div>
+                </div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 font-['Space_Grotesk']">{t.value}</p>
               </Card>
             ))}
           </div>
