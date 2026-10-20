@@ -151,8 +151,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur shadow-sm">
+      <div className="flex flex-col min-w-0 min-h-screen">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 sm:px-6 backdrop-blur shadow-sm">
           <button className="lg:hidden text-slate-700" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu size={20} />
           </button>
@@ -189,7 +189,7 @@ export function AppShell() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <button
-                className="relative text-slate-600"
+                className="relative text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
                 aria-label="Notifications"
                 onClick={async () => {
                   setNotesOpen((v) => !v);
@@ -201,44 +201,45 @@ export function AppShell() {
               >
                 <Bell size={18} />
                 {unread ? (
-                  <span className="absolute -right-1 -top-1 rounded-full bg-rose-600 px-1 text-[10px] text-white">{unread}</span>
+                  <span className="absolute -right-0.5 -top-0.5 rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-bold text-white shadow-sm">{unread}</span>
                 ) : null}
               </button>
               {notesOpen ? (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white p-2 text-sm shadow-lg">
+                <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white p-2 text-sm shadow-xl z-50">
                   {!notes.data?.length ? (
-                    <p className="p-2 text-slate-500">No notifications</p>
+                    <p className="p-3 text-slate-500 text-center text-xs">No new notifications</p>
                   ) : (
                     notes.data.map((n) => (
                       <button
                         key={n.id}
-                        className="block w-full rounded-lg px-2 py-2 text-left hover:bg-slate-50"
+                        className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50 transition"
                         onClick={() => {
                           setNotesOpen(false);
                           if (n.link_path) navigate(n.link_path);
                         }}
                       >
-                        <span className="font-medium">{n.title}</span>
-                        <span className="block text-xs text-slate-500">{n.body}</span>
+                        <span className="font-semibold text-slate-900 block text-xs">{n.title}</span>
+                        <span className="block text-xs text-slate-500 mt-0.5">{n.body}</span>
                       </button>
                     ))
                   )}
                 </div>
               ) : null}
             </div>
-            <span className="hidden text-sm text-slate-600 sm:inline">{user?.email}</span>
+            <span className="hidden text-xs font-medium text-slate-600 sm:inline">{user?.email}</span>
             <Button
               variant="ghost"
               onClick={async () => {
                 await supabase.auth.signOut();
                 navigate("/login");
               }}
+              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700"
             >
-              <LogOut size={16} /> Logout
+              <LogOut size={15} /> Logout
             </Button>
           </div>
         </header>
-        <main className="p-4 sm:p-6">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 relative">
           <Outlet />
         </main>
       </div>

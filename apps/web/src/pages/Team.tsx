@@ -45,7 +45,7 @@ export function TeamPage() {
 
   return (
     <div>
-      <PageHeader title="Team" subtitle="Public signup is disabled. Members join by invite only." actions={admin ? <Button onClick={() => setOpen(true)}>Invite</Button> : null} />
+      <PageHeader title="Team" subtitle="Public signup is disabled. Members join by invite only." actions={admin ? <Button onClick={() => setOpen(true)}>+ Invite Member</Button> : null} />
       {!members.data?.length ? (
         <Empty title="No members visible" />
       ) : (
