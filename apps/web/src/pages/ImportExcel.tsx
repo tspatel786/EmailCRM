@@ -16,6 +16,7 @@ export function ImportExcelPage() {
   const [map, setMap] = useState<Record<string, ContactField | "skip">>({});
   const [fileName, setFileName] = useState("");
   const [sourceKind, setSourceKind] = useState<"xlsx" | "csv">("xlsx");
+  const [grantConsent, setGrantConsent] = useState(true);
   const [preview, setPreview] = useState<Array<{ row: number; ok: boolean; error?: string; email?: string }>>([]);
 
   const history = useQuery({
@@ -102,6 +103,7 @@ export function ImportExcelPage() {
           continue;
         }
         const payload = result.data;
+        const consentVal = grantConsent ? "granted" : (payload.consent_status || "unknown");
         if (payload.primary_email) {
           const { data: existing } = await supabase
             .from("contacts")
@@ -122,6 +124,7 @@ export function ImportExcelPage() {
                 country: payload.country,
                 service_interest: payload.service_interest,
                 lead_source: payload.lead_source,
+                ...(grantConsent ? { consent_status: "granted", email_opt_in: true } : {}),
               })
               .eq("id", existing.id);
             if (error) {
@@ -140,8 +143,9 @@ export function ImportExcelPage() {
         const { error } = await supabase.from("contacts").insert({
           organization_id: org.organization_id,
           created_by: user.id,
-          email_opt_in: payload.consent_status === "granted",
           ...payload,
+          consent_status: consentVal,
+          email_opt_in: consentVal === "granted",
         });
         if (error) {
           errors += 1;
@@ -176,24 +180,57 @@ export function ImportExcelPage() {
 
   return (
     <div>
-      <PageHeader title="Import Excel / CSV" subtitle="Map columns, preview validation, then upsert by email within this organization." />
+      <PageHeader
+        title="Import Excel / CSV"
+        subtitle="Map columns, preview validation, then import contacts for automated 90/day email delivery."
+      />
+
+      {/* Quota Banner */}
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">🎯</span>
+          <div>
+            <div className="font-bold text-sm">Daily Auto-Send Limit: Fixed 90 Emails / Day (दररोज ९० ईमेल)</div>
+            <div className="text-xs text-amber-900 mt-0.5">
+              तुम्ही एकदाच ५०० किंवा १,००० कॉन्टॅक्ट्सची एक्सेल फाईल अपलोड करू शकता. सिस्टीम दररोज बरोबर ९० ईमेल पाठवेल आणि उर्वरित आपोआप पुढच्या दिवशी पाठवले जातील.
+            </div>
+          </div>
+        </div>
+        <span className="rounded-full bg-amber-200 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs">
+          Active Limit: 90 / Day
+        </span>
+      </div>
+
       <Card className="space-y-4">
-        <input
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void onFile(f).catch((err: Error) => alert(err.message));
-          }}
-        />
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
+          <input
+            type="file"
+            id="excel-file-input"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f).catch((err: Error) => alert(err.message));
+            }}
+          />
+          <label
+            htmlFor="excel-file-input"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 text-sm shadow-sm transition"
+          >
+            📁 Choose Excel File (.xlsx / .csv)
+          </label>
+          {fileName && <p className="mt-2 text-xs font-semibold text-slate-700">Selected: {fileName} ({rows.length} rows detected)</p>}
+        </div>
+
         {headers.length ? (
-          <div className="overflow-auto">
+          <div className="overflow-auto space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Map Columns to Contact Fields:</h3>
             <table className="w-full text-sm">
               <thead>
                 <tr>
                   {headers.map((h) => (
-                    <th key={h} className="p-2 text-left">
-                      {h}
+                    <th key={h} className="p-2 text-left bg-slate-50 rounded-lg">
+                      <div className="text-xs font-semibold text-slate-700 mb-1">{h}</div>
                       <Select
                         value={map[h] ?? "skip"}
                         onChange={(e) => setMap((m) => ({ ...m, [h]: e.target.value as ContactField | "skip" }))}
@@ -210,12 +247,29 @@ export function ImportExcelPage() {
                 </tr>
               </thead>
             </table>
+
+            {/* Consent Checkbox */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-1">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={grantConsent}
+                  onChange={(e) => setGrantConsent(e.target.checked)}
+                  className="rounded text-amber-500 focus:ring-amber-400"
+                />
+                Mark all imported contacts as eligible for email campaigns (ईमेल मोहिमेसाठी संमती द्या - Granted)
+              </label>
+              <p className="text-[11px] text-amber-800/90 pl-5">
+                💡 हे ऑन ठेवल्याने एक्सेल फाईलमधील सर्व कॉन्टॅक्ट्सना कॅम्पेनद्वारे दररोज ९० ईमेल आपोआप पाठवले जातील.
+              </p>
+            </div>
+
             <div className="mt-3 flex gap-2">
               <Button variant="secondary" type="button" onClick={runPreview}>
                 Preview
               </Button>
               <Button type="button" onClick={() => importMut.mutate()} disabled={importMut.isPending}>
-                Import {rows.length} rows
+                {importMut.isPending ? "Importing..." : `Import ${rows.length} Contacts`}
               </Button>
             </div>
           </div>
