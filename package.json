@@ -12,6 +12,8 @@
     "dev": "npm run dev -w @crm/web",
     "dev:worker": "npm run dev -w @crm/worker",
     "build": "npm run build -w @crm/shared && npm run build -w @crm/web && npm run build -w @crm/worker",
+    "build:worker": "npm run build -w @crm/shared && npm run build -w @crm/worker",
+    "start:worker": "npm run start -w @crm/worker",
     "lint": "npm run lint -w @crm/web && npm run lint -w @crm/worker && npm run lint -w @crm/shared",
     "test": "npm run typecheck",
     "typecheck": "npm run typecheck -w @crm/shared && npm run typecheck -w @crm/web && npm run typecheck -w @crm/worker",

@@ -13,7 +13,7 @@ function required(name: string, fallback?: string): string {
 export const env = {
   supabaseUrl: required("SUPABASE_URL", process.env.VITE_SUPABASE_URL),
   serviceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
-  smtpHost: process.env.SMTP_HOST ?? "smtp.zoho.com",
+  smtpHost: process.env.SMTP_HOST ?? "smtp.zoho.in",
   smtpPort: Number(process.env.SMTP_PORT ?? "465"),
   smtpSecure: (process.env.SMTP_SECURE ?? "true") === "true",
   smtpUser: process.env.SMTP_USER ?? "",
