@@ -1,0 +1,28 @@
+{
+  "name": "itservices-crm",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Multi-tenant IT Services CRM, email automation, call management, and follow-up system",
+  "workspaces": [
+    "apps/web",
+    "packages/shared",
+    "worker"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @crm/web",
+    "dev:worker": "npm run dev -w @crm/worker",
+    "build": "npm run build -w @crm/shared && npm run build -w @crm/web && npm run build -w @crm/worker",
+    "lint": "npm run lint -w @crm/web && npm run lint -w @crm/worker && npm run lint -w @crm/shared",
+    "test": "npm run typecheck",
+    "typecheck": "npm run typecheck -w @crm/shared && npm run typecheck -w @crm/web && npm run typecheck -w @crm/worker",
+    "seed": "npm run seed -w @crm/worker",
+    "check:secrets": "node scripts/check-frontend-secrets.mjs"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "dotenv": "^16.4.7"
+  }
+}

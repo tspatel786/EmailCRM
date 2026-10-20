@@ -1,0 +1,77 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { Button, Card, Field, Input, PageHeader } from "../components/ui";
+
+export function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+      <PageHeader title="Reset password" subtitle="We will email a reset link if the account exists." />
+      <Card>
+        {sent ? (
+          <p className="text-sm text-slate-600">If that address is registered, a reset email is on its way.</p>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+              });
+              setSent(true);
+            }}
+          >
+            <Field label="Email">
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </Field>
+            <Button type="submit" className="w-full">
+              Send reset link
+            </Button>
+          </form>
+        )}
+        <p className="mt-4 text-sm">
+          <Link className="text-brand-700" to="/login">
+            Back to sign in
+          </Link>
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+export function ResetPasswordPage() {
+  const [password, setPassword] = useState("");
+  const [done, setDone] = useState(false);
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+      <PageHeader title="Choose a new password" />
+      <Card>
+        {done ? (
+          <p className="text-sm">
+            Password updated. <Link to="/login">Sign in</Link>
+          </p>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const { error } = await supabase.auth.updateUser({ password });
+              if (!error) setDone(true);
+            }}
+          >
+            <Field label="New password">
+              <Input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </Field>
+            <Button type="submit" className="w-full">
+              Update password
+            </Button>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}

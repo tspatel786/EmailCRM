@@ -1,0 +1,49 @@
+# Render Blueprint Specification for IT Services CRM
+# Deploys both the Web App (Static Site) and Email Worker (Web Service)
+
+services:
+  # 1. Frontend Web Application (Static Site - Free)
+  - type: web
+    name: crm-web
+    runtime: static
+    buildCommand: npm run build -w @crm/shared && npm run build -w @crm/web
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+
+  # 2. Email & Reminder Background Worker
+  - type: web
+    name: crm-worker
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build -w @crm/shared && npm run build -w @crm/worker
+    startCommand: npm run start -w @crm/worker
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SMTP_HOST
+        value: smtppro.zoho.in
+      - key: SMTP_PORT
+        value: 465
+      - key: SMTP_SECURE
+        value: true
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_MOCK
+        value: false
