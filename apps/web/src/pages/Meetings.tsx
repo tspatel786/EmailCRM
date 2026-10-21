@@ -39,12 +39,15 @@ export function MeetingsPage() {
   function openCreate() {
     setEditTarget(null);
     save.reset();
+    form.clearErrors();
     form.reset({ title: "", starts_at: new Date().toISOString().slice(0, 16), status: "scheduled" });
     setOpen(true);
   }
 
   function openEdit(m: Meeting) {
     setEditTarget(m);
+    save.reset();
+    form.clearErrors();
     form.reset({
       title: m.title,
       starts_at: m.starts_at.slice(0, 16),
@@ -167,16 +170,29 @@ export function MeetingsPage() {
         </Card>
       )}
       <Modal open={open} title={editTarget ? "Edit meeting" : "Schedule meeting"} onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => save.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => save.mutate(v),
+            (errors) => console.warn("Meeting validation errors:", errors)
+          )}
+        >
           {save.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(save.error as Error).message || "Failed to save meeting"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !save.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Title" error={form.formState.errors.title?.message}>
-            <Input {...form.register("title")} />
+            <Input placeholder="e.g. Quarterly IT Review" {...form.register("title")} />
           </Field>
-          <Field label="Contact">
+          <Field label="Contact" error={form.formState.errors.contact_id?.message}>
             <Select {...form.register("contact_id")}>
               <option value="">None</option>
               {(contacts.data ?? []).map((c) => (
@@ -186,33 +202,33 @@ export function MeetingsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Status">
+          <Field label="Status" error={form.formState.errors.status?.message}>
             <Select {...form.register("status")}>
               {["scheduled", "completed", "cancelled", "no_show"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Starts">
+          <Field label="Starts" error={form.formState.errors.starts_at?.message}>
             <Input type="datetime-local" {...form.register("starts_at")} />
           </Field>
-          <Field label="Ends">
+          <Field label="Ends" error={form.formState.errors.ends_at?.message}>
             <Input type="datetime-local" {...form.register("ends_at")} />
           </Field>
-          <Field label="Location">
-            <Input {...form.register("location")} />
+          <Field label="Location" error={form.formState.errors.location?.message}>
+            <Input placeholder="e.g. Google Meet / Client Office" {...form.register("location")} />
           </Field>
-          <Field label="Agenda">
-            <Textarea {...form.register("agenda")} />
+          <Field label="Agenda" error={form.formState.errors.agenda?.message}>
+            <Textarea rows={3} placeholder="Discussion topics..." {...form.register("agenda")} />
           </Field>
-          <Field label="Notes">
-            <Textarea {...form.register("notes")} />
+          <Field label="Notes" error={form.formState.errors.notes?.message}>
+            <Textarea rows={3} placeholder="Meeting notes..." {...form.register("notes")} />
           </Field>
-          <Field label="Outcome">
+          <Field label="Outcome" error={form.formState.errors.outcome?.message}>
             <Input {...form.register("outcome")} placeholder="Summary of what was decided" />
           </Field>
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={save.isPending} className="w-full">
+            {save.isPending ? "Saving..." : editTarget ? "Update Meeting" : "Save Meeting"}
           </Button>
         </form>
       </Modal>

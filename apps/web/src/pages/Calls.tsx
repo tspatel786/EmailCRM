@@ -350,12 +350,25 @@ export function CallsPage() {
 
       {/* Log Call Modal */}
       <Modal open={open} title="Log call" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Log call validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to log call"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Contact" error={form.formState.errors.contact_id?.message}>
             <Select {...form.register("contact_id")} required>
               <option value="">Select contact</option>
@@ -366,46 +379,46 @@ export function CallsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Date and time">
+          <Field label="Date and time" error={form.formState.errors.called_at?.message}>
             <Input type="datetime-local" {...form.register("called_at")} />
           </Field>
-          <Field label="Direction">
+          <Field label="Direction" error={form.formState.errors.direction?.message}>
             <Select {...form.register("direction")}>
               <option value="outgoing">outgoing</option>
               <option value="incoming">incoming</option>
             </Select>
           </Field>
-          <Field label="Duration (seconds)">
+          <Field label="Duration (seconds)" error={form.formState.errors.duration_seconds?.message}>
             <Input type="number" min={0} {...form.register("duration_seconds")} />
           </Field>
-          <Field label="Outcome">
+          <Field label="Outcome" error={form.formState.errors.outcome?.message}>
             <Select {...form.register("outcome")}>
               {["answered", "not_answered", "busy", "callback", "interested", "not_interested"].map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Notes">
+          <Field label="Notes" error={form.formState.errors.notes?.message}>
             <Textarea {...form.register("notes")} />
           </Field>
-          <Field label="Requirements">
+          <Field label="Requirements" error={form.formState.errors.requirements?.message}>
             <Textarea {...form.register("requirements")} />
           </Field>
-          <Field label="Next action">
+          <Field label="Next action" error={form.formState.errors.next_action?.message}>
             <Input {...form.register("next_action")} />
           </Field>
-          <Field label="Follow-up at">
+          <Field label="Follow-up at" error={form.formState.errors.follow_up_at?.message}>
             <Input type="datetime-local" {...form.register("follow_up_at")} />
           </Field>
-          <Field label="Priority">
+          <Field label="Priority" error={form.formState.errors.priority?.message}>
             <Select {...form.register("priority")}>
               {["low", "medium", "high", "urgent"].map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </Select>
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Call Log"}
           </Button>
         </form>
       </Modal>

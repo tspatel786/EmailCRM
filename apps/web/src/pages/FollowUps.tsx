@@ -224,26 +224,39 @@ export function FollowUpsPage() {
         </Card>
       )}
       <Modal open={open} title="New task" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Task validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to create task"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Title" error={form.formState.errors.title?.message}>
-            <Input {...form.register("title")} />
+            <Input placeholder="e.g. Follow up on proposal sent" {...form.register("title")} />
           </Field>
-          <Field label="Description">
-            <Textarea {...form.register("description")} />
+          <Field label="Description" error={form.formState.errors.description?.message}>
+            <Textarea rows={3} placeholder="Task details..." {...form.register("description")} />
           </Field>
-          <Field label="Kind">
+          <Field label="Kind" error={form.formState.errors.kind?.message}>
             <Select {...form.register("kind")}>
               <option value="follow_up">follow_up</option>
               <option value="task">task</option>
               <option value="reminder">reminder</option>
             </Select>
           </Field>
-          <Field label="Contact">
+          <Field label="Contact" error={form.formState.errors.contact_id?.message}>
             <Select {...form.register("contact_id")}>
               <option value="">None</option>
               {(contacts.data ?? []).map((c) => (
@@ -253,20 +266,20 @@ export function FollowUpsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Assignee">
+          <Field label="Assignee" error={form.formState.errors.assigned_to?.message}>
             <MemberSelect value={form.watch("assigned_to")} onChange={(v) => form.setValue("assigned_to", v)} />
           </Field>
-          <Field label="Due">
+          <Field label="Due" error={form.formState.errors.due_at?.message}>
             <Input type="datetime-local" {...form.register("due_at")} />
           </Field>
-          <Field label="Priority">
+          <Field label="Priority" error={form.formState.errors.priority?.message}>
             <Select {...form.register("priority")}>
               {["low", "medium", "high", "urgent"].map((p) => (
                 <option key={p}>{p}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Recurrence">
+          <Field label="Recurrence" error={form.formState.errors.recurrence_rule?.message}>
             <Select {...form.register("recurrence_rule")}>
               <option value="none">none</option>
               <option value="daily">daily</option>
@@ -276,8 +289,8 @@ export function FollowUpsPage() {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("reminder_email")} /> Email reminder via worker
           </label>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Task"}
           </Button>
         </form>
       </Modal>

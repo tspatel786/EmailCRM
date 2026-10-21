@@ -64,23 +64,39 @@ export const taskFormSchema = z.object({
   recurrence_rule: z.enum(["none", "daily", "weekly"]).optional(),
 });
 
-export const templateFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
-  subject: z.string().trim().min(1, "Subject is required").max(300),
-  body_text: z.string().min(1, "Body text is required"),
-  body_html: z.string().optional().default(""),
-});
+export const templateFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(200),
+    subject: z.string().trim().min(1, "Subject is required").max(300),
+    body_text: z.string().optional().default(""),
+    body_html: z.string().optional().default(""),
+  })
+  .refine(
+    (data) => (data.body_text && data.body_text.trim().length > 0) || (data.body_html && data.body_html.trim().length > 0),
+    {
+      message: "Body text or HTML template content is required",
+      path: ["body_text"],
+    }
+  );
 
-export const campaignFormSchema = z.object({
-  name: z.string().trim().min(1, "Campaign name is required").max(200),
-  template_id: optionalUuid,
-  list_id: optionalUuid,
-  subject: z.string().trim().min(1, "Subject is required").max(300),
-  body_text: z.string().min(1, "Body text is required"),
-  body_html: z.string().optional().default(""),
-  scheduled_at: optionalDate,
-  requires_consent: z.boolean().default(true),
-});
+export const campaignFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Campaign name is required").max(200),
+    template_id: optionalUuid,
+    list_id: optionalUuid,
+    subject: z.string().trim().min(1, "Subject is required").max(300),
+    body_text: z.string().optional().default(""),
+    body_html: z.string().optional().default(""),
+    scheduled_at: optionalDate,
+    requires_consent: z.boolean().default(true),
+  })
+  .refine(
+    (data) => (data.body_text && data.body_text.trim().length > 0) || (data.body_html && data.body_html.trim().length > 0),
+    {
+      message: "Campaign email body message is required",
+      path: ["body_text"],
+    }
+  );
 
 export const dealFormSchema = z.object({
   title: z.string().trim().min(1, "Deal title is required").max(300),

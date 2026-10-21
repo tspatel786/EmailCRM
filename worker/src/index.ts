@@ -2,6 +2,7 @@ import { assertWorkerSecrets, env } from "./env.js";
 import { startHealthServer, type HealthState } from "./health.js";
 import { claimJobs, heartbeat, processJob, reclaimExpiredLeases } from "./process-jobs.js";
 import { activateScheduledCampaigns, processDueReminders } from "./reminders.js";
+import { processDemoEmails } from "./demo-emails.js";
 
 assertWorkerSecrets();
 
@@ -41,6 +42,7 @@ async function loop(): Promise<void> {
       await reclaimExpiredLeases();
       await activateScheduledCampaigns();
       await processDueReminders();
+      await processDemoEmails();
       const jobs = await claimJobs();
       state.jobsClaimed += jobs.length;
       for (const job of jobs) {

@@ -27,7 +27,7 @@ def audit_all_buttons():
 
     try:
         print("Logging in to CRM...")
-        driver.get("https://crm-web-wbq7.onrender.com/login")
+        driver.get("https://sales.smpatelithub.in/login")
         time.sleep(2)
 
         # Login
@@ -39,22 +39,22 @@ def audit_all_buttons():
         print("Logged in successfully!\n")
 
         pages = [
-            ("Dashboard", "https://crm-web-wbq7.onrender.com/app"),
-            ("Contacts", "https://crm-web-wbq7.onrender.com/app/contacts"),
-            ("Companies", "https://crm-web-wbq7.onrender.com/app/companies"),
-            ("Import Excel", "https://crm-web-wbq7.onrender.com/app/import"),
-            ("Calls", "https://crm-web-wbq7.onrender.com/app/calls"),
-            ("Follow-ups", "https://crm-web-wbq7.onrender.com/app/follow-ups"),
-            ("Campaigns", "https://crm-web-wbq7.onrender.com/app/campaigns"),
-            ("Templates", "https://crm-web-wbq7.onrender.com/app/templates"),
-            ("Deals", "https://crm-web-wbq7.onrender.com/app/deals"),
-            ("Quotations", "https://crm-web-wbq7.onrender.com/app/quotations"),
-            ("Meetings", "https://crm-web-wbq7.onrender.com/app/meetings"),
-            ("Projects", "https://crm-web-wbq7.onrender.com/app/projects"),
-            ("Reports", "https://crm-web-wbq7.onrender.com/app/reports"),
-            ("Team", "https://crm-web-wbq7.onrender.com/app/team"),
-            ("Settings", "https://crm-web-wbq7.onrender.com/app/settings"),
-            ("Audit Logs", "https://crm-web-wbq7.onrender.com/app/audit")
+            ("Dashboard", "https://sales.smpatelithub.in/app"),
+            ("Contacts", "https://sales.smpatelithub.in/app/contacts"),
+            ("Companies", "https://sales.smpatelithub.in/app/companies"),
+            ("Import Excel", "https://sales.smpatelithub.in/app/import"),
+            ("Calls", "https://sales.smpatelithub.in/app/calls"),
+            ("Follow-ups", "https://sales.smpatelithub.in/app/follow-ups"),
+            ("Campaigns", "https://sales.smpatelithub.in/app/campaigns"),
+            ("Templates", "https://sales.smpatelithub.in/app/templates"),
+            ("Deals", "https://sales.smpatelithub.in/app/deals"),
+            ("Quotations", "https://sales.smpatelithub.in/app/quotations"),
+            ("Meetings", "https://sales.smpatelithub.in/app/meetings"),
+            ("Projects", "https://sales.smpatelithub.in/app/projects"),
+            ("Reports", "https://sales.smpatelithub.in/app/reports"),
+            ("Team", "https://sales.smpatelithub.in/app/team"),
+            ("Settings", "https://sales.smpatelithub.in/app/settings"),
+            ("Audit Logs", "https://sales.smpatelithub.in/app/audit")
         ]
 
         issues_found = []
@@ -89,8 +89,9 @@ def audit_all_buttons():
                 try:
                     if any(act in txt.lower() for act in ["add", "new", "create", "export", "schedule", "filter"]):
                         print(f"    Testing click on: '{txt}'")
-                        driver.execute_script("arguments[0].scrollIntoView(true);", btn)
-                        btn.click()
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", btn)
+                        time.sleep(0.3)
+                        driver.execute_script("arguments[0].click();", btn)
                         time.sleep(1)
                         
                         # Check if a modal or dialog popped up

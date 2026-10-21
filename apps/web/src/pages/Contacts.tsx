@@ -232,7 +232,13 @@ export function ContactsPage() {
         </Card>
       )}
       <Modal open={open} title="New contact" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Contact validation errors:", errors)
+          )}
+        >
           {dupWarning ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {dupWarning}
@@ -243,17 +249,24 @@ export function ContactsPage() {
               {(create.error as Error).message || "Failed to save contact"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error && !dupWarning ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Full name" error={form.formState.errors.full_name?.message}>
-            <Input {...form.register("full_name")} />
+            <Input placeholder="e.g. Rahul Sharma" {...form.register("full_name")} />
           </Field>
-          <Field label="Company">
-            <Input {...form.register("company_name")} />
+          <Field label="Company" error={form.formState.errors.company_name?.message}>
+            <Input placeholder="Company name" {...form.register("company_name")} />
           </Field>
           <Field label="Email" error={form.formState.errors.primary_email?.message}>
-            <Input type="email" {...form.register("primary_email")} />
+            <Input type="email" placeholder="name@company.com" {...form.register("primary_email")} />
           </Field>
-          <Field label="Phone">
-            <Input {...form.register("primary_phone")} />
+          <Field label="Phone" error={form.formState.errors.primary_phone?.message}>
+            <Input placeholder="+91 98765 43210" {...form.register("primary_phone")} />
           </Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="City">
@@ -296,8 +309,8 @@ export function ContactsPage() {
           <Field label="Notes">
             <Textarea {...form.register("notes")} />
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Contact"}
           </Button>
         </form>
       </Modal>

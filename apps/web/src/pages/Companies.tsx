@@ -186,32 +186,45 @@ export function CompaniesPage() {
       )}
 
       <Modal open={open} title="New company" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Company validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to save company"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Name" error={form.formState.errors.name?.message}>
-            <Input {...form.register("name")} />
+            <Input placeholder="e.g. Acme Technologies" {...form.register("name")} />
           </Field>
-          <Field label="Website">
-            <Input {...form.register("website")} />
+          <Field label="Website" error={form.formState.errors.website?.message}>
+            <Input placeholder="https://example.com" {...form.register("website")} />
           </Field>
-          <Field label="City">
-            <Input {...form.register("city")} />
+          <Field label="City" error={form.formState.errors.city?.message}>
+            <Input placeholder="e.g. Mumbai" {...form.register("city")} />
           </Field>
-          <Field label="State">
-            <Input {...form.register("state")} />
+          <Field label="State" error={form.formState.errors.state?.message}>
+            <Input placeholder="e.g. Maharashtra" {...form.register("state")} />
           </Field>
-          <Field label="Country">
-            <Input {...form.register("country")} />
+          <Field label="Country" error={form.formState.errors.country?.message}>
+            <Input placeholder="e.g. India" {...form.register("country")} />
           </Field>
-          <Field label="Notes">
-            <Textarea {...form.register("notes")} />
+          <Field label="Notes" error={form.formState.errors.notes?.message}>
+            <Textarea rows={3} placeholder="Company details..." {...form.register("notes")} />
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Company"}
           </Button>
         </form>
       </Modal>

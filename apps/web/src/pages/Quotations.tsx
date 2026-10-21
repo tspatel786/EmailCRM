@@ -427,12 +427,25 @@ export function QuotationsPage() {
 
       {/* Create Quotation Modal with Line Items Editor (H9) */}
       <Modal open={open} title="New quotation" onClose={() => setOpen(false)}>
-        <form className="space-y-4" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-4"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Quotation validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to save quotation"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Quotation Title" error={form.formState.errors.title?.message}>
             <Input {...form.register("title")} required placeholder="e.g. Annual IT Support Contract" />
           </Field>

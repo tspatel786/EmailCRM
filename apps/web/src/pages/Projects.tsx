@@ -341,30 +341,43 @@ export function ProjectsPage() {
 
       {/* New Project Modal */}
       <Modal open={open} title="New project" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Project validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to create project"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Name" error={form.formState.errors.name?.message}>
-            <Input {...form.register("name")} />
+            <Input placeholder="e.g. Cloud Migration Phase 1" {...form.register("name")} />
           </Field>
-          <Field label="Status">
+          <Field label="Status" error={form.formState.errors.status?.message}>
             <Select {...form.register("status")}>
               {["planning", "active", "on_hold", "completed", "cancelled"].map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Deadline">
+          <Field label="Deadline" error={form.formState.errors.deadline?.message}>
             <Input type="date" {...form.register("deadline")} />
           </Field>
-          <Field label="Notes">
-            <Textarea {...form.register("notes")} />
+          <Field label="Notes" error={form.formState.errors.notes?.message}>
+            <Textarea rows={3} placeholder="Project scope and details..." {...form.register("notes")} />
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Creating..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Creating..." : "Save Project"}
           </Button>
         </form>
       </Modal>
@@ -374,30 +387,43 @@ export function ProjectsPage() {
         {selectedProject && (
           <div className="space-y-6">
             {/* Edit Details */}
-            <form className="space-y-3 border-b border-slate-200 pb-4" onSubmit={editForm.handleSubmit((v) => updateProject.mutate(v))}>
+            <form
+              className="space-y-3 border-b border-slate-200 pb-4"
+              onSubmit={editForm.handleSubmit(
+                (v) => updateProject.mutate(v),
+                (errors) => console.warn("Edit project validation errors:", errors)
+              )}
+            >
               {updateProject.error ? (
                 <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
                   {(updateProject.error as Error).message || "Failed to update project"}
                 </div>
               ) : null}
+
+              {Object.keys(editForm.formState.errors).length > 0 && !updateProject.error ? (
+                <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+                  Please fix the highlighted errors before saving.
+                </div>
+              ) : null}
+
               <h3 className="font-semibold text-slate-800">Project Details</h3>
-              <Field label="Project Name">
+              <Field label="Project Name" error={editForm.formState.errors.name?.message}>
                 <Input {...editForm.register("name")} required />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Status">
+                <Field label="Status" error={editForm.formState.errors.status?.message}>
                   <Select {...editForm.register("status")}>
                     {["planning", "active", "on_hold", "completed", "cancelled"].map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </Select>
                 </Field>
-                <Field label="Deadline">
+                <Field label="Deadline" error={editForm.formState.errors.deadline?.message}>
                   <Input type="date" {...editForm.register("deadline")} />
                 </Field>
               </div>
-              <Field label="Notes">
-                <Textarea {...editForm.register("notes")} />
+              <Field label="Notes" error={editForm.formState.errors.notes?.message}>
+                <Textarea rows={3} {...editForm.register("notes")} />
               </Field>
               {writable && (
                 <Button type="submit" disabled={updateProject.isPending}>

@@ -45,12 +45,27 @@ export function CampaignsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
-      const scheduledIso = values.scheduled_at && values.scheduled_at.trim() ? new Date(values.scheduled_at).toISOString() : null;
+      let scheduledIso: string | null = null;
+      if (values.scheduled_at && values.scheduled_at.trim()) {
+        const d = new Date(values.scheduled_at);
+        if (!isNaN(d.getTime())) {
+          scheduledIso = d.toISOString();
+        }
+      }
+      const derivedText = values.body_text?.trim()
+        ? values.body_text
+        : (values.body_html ? values.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "");
+
       const { error } = await supabase.from("campaigns").insert({
-        ...values,
+        name: values.name.trim(),
+        template_id: values.template_id || null,
+        list_id: values.list_id || null,
+        subject: values.subject.trim(),
+        body_text: derivedText,
         body_html: DOMPurify.sanitize(values.body_html || ""),
         organization_id: org!.organization_id,
         scheduled_at: scheduledIso,
+        requires_consent: values.requires_consent,
       });
       if (error) throw error;
     },
@@ -130,12 +145,25 @@ export function CampaignsPage() {
         </Card>
       )}
       <Modal open={open} title="New Campaign (नवीन मोहीम)" onClose={() => setOpen(false)}>
-        <form className="space-y-3.5" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3.5"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Campaign form validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to create campaign"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Campaign Name" error={form.formState.errors.name?.message}>
             <Input placeholder="e.g. Diwali IT Services Offer" {...form.register("name")} />
           </Field>
@@ -170,16 +198,16 @@ export function CampaignsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Subject">
+          <Field label="Subject" error={form.formState.errors.subject?.message}>
             <Input placeholder="Email Subject line" {...form.register("subject")} />
           </Field>
-          <Field label="Body">
+          <Field label="Body" error={form.formState.errors.body_text?.message}>
             <Textarea rows={5} placeholder="Compose your email message..." {...form.register("body_text")} />
           </Field>
 
           {/* Schedule Date & Time section */}
           <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2">
-            <Field label="Schedule Delivery Date & Time (मेल कधी पाठवायचा - तारीख व वेळ)">
+            <Field label="Schedule Delivery Date & Time (मेल कधी पाठवायचा - तारीख व वेळ)" error={form.formState.errors.scheduled_at?.message}>
               <Input type="datetime-local" {...form.register("scheduled_at")} />
             </Field>
             <p className="text-[11px] text-amber-800 leading-relaxed">
@@ -226,9 +254,11 @@ export function CampaignDetailPage() {
 
   const pause = useMutation({
     mutationFn: async (status: "paused" | "cancelled") => {
-      await supabase.from("campaigns").update({ status }).eq("id", id!);
+      const { error: cErr } = await supabase.from("campaigns").update({ status }).eq("id", id!);
+      if (cErr) throw cErr;
       if (status === "cancelled") {
-        await supabase.from("email_jobs").update({ status: "cancelled" }).eq("campaign_id", id!).in("status", ["queued", "failed"]);
+        const { error: jErr } = await supabase.from("email_jobs").update({ status: "cancelled" }).eq("campaign_id", id!).in("status", ["queued", "failed"]);
+        if (jErr) throw jErr;
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["campaign", id] }),
@@ -342,6 +372,7 @@ export function CampaignDetailPage() {
         onConfirm={() => queue.mutate()}
       />
       {queue.error ? <p className="mt-2 text-sm text-rose-700">{(queue.error as Error).message}</p> : null}
+      {pause.error ? <p className="mt-2 text-sm text-rose-700">{(pause.error as Error).message}</p> : null}
       <p className="mt-4 text-sm">
         <Link to="/app/campaigns">Back</Link>
       </p>

@@ -207,16 +207,29 @@ export function DealsPage() {
         </Card>
       )}
       <Modal open={open} title="New deal" onClose={() => setOpen(false)}>
-        <form className="space-y-3" onSubmit={form.handleSubmit((v) => create.mutate(v))}>
+        <form
+          className="space-y-3"
+          onSubmit={form.handleSubmit(
+            (v) => create.mutate(v),
+            (errors) => console.warn("Deal validation errors:", errors)
+          )}
+        >
           {create.error ? (
             <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
               {(create.error as Error).message || "Failed to save deal"}
             </div>
           ) : null}
+
+          {Object.keys(form.formState.errors).length > 0 && !create.error ? (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+              Please fix the required fields highlighted below before saving.
+            </div>
+          ) : null}
+
           <Field label="Title" error={form.formState.errors.title?.message}>
-            <Input {...form.register("title")} />
+            <Input placeholder="e.g. ERP Implementation Contract" {...form.register("title")} />
           </Field>
-          <Field label="Contact">
+          <Field label="Contact" error={form.formState.errors.contact_id?.message}>
             <Select {...form.register("contact_id")}>
               <option value="">None</option>
               {(contacts.data ?? []).map((c) => (
@@ -226,17 +239,17 @@ export function DealsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Value">
-            <Input type="number" step="0.01" {...form.register("estimated_value")} />
+          <Field label="Value (₹)" error={form.formState.errors.estimated_value?.message}>
+            <Input type="number" step="0.01" min={0} {...form.register("estimated_value")} />
           </Field>
-          <Field label="Expected close">
+          <Field label="Expected close" error={form.formState.errors.expected_close_date?.message}>
             <Input type="date" {...form.register("expected_close_date")} />
           </Field>
-          <Field label="Probability">
+          <Field label="Probability (%)" error={form.formState.errors.probability?.message}>
             <Input type="number" min={0} max={100} {...form.register("probability")} />
           </Field>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={create.isPending} className="w-full">
+            {create.isPending ? "Saving..." : "Save Deal"}
           </Button>
         </form>
       </Modal>
