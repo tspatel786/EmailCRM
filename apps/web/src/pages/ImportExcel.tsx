@@ -11,6 +11,7 @@ export function ImportExcelPage() {
   const { org, user } = useSession();
   const writable = canWrite(org?.role);
   const qc = useQueryClient();
+  const [fileError, setFileError] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [map, setMap] = useState<Record<string, ContactField | "skip">>({});
@@ -35,6 +36,7 @@ export function ImportExcelPage() {
   });
 
   async function onFile(file: File) {
+    setFileError(null);
     if (file.size > 20 * 1024 * 1024) {
       throw new Error("File exceeds 20 MB limit");
     }
@@ -173,7 +175,13 @@ export function ImportExcelPage() {
         })
         .eq("id", batch.id);
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["imports"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["imports"] });
+      void qc.invalidateQueries({ queryKey: ["contacts"] });
+    },
+    onError: (err) => {
+      console.error("Import execution failed:", err);
+    },
   });
 
   if (!writable) return <Empty title="Viewers cannot import contacts" />;
@@ -202,6 +210,11 @@ export function ImportExcelPage() {
       </div>
 
       <Card className="space-y-4">
+        {fileError && (
+          <div className="rounded-lg bg-rose-50 p-3 text-xs font-medium text-rose-700 border border-rose-200">
+            {fileError}
+          </div>
+        )}
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
           <input
             type="file"
@@ -210,7 +223,7 @@ export function ImportExcelPage() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void onFile(f).catch((err: Error) => alert(err.message));
+              if (f) void onFile(f).catch((err: Error) => setFileError(err.message));
             }}
           />
           <label
@@ -291,8 +304,8 @@ export function ImportExcelPage() {
             </ul>
           </div>
         ) : null}
-        {importMut.isSuccess ? <p className="text-sm text-emerald-700">Import finished. See batch history below.</p> : null}
-        {importMut.error ? <p className="text-sm text-rose-700">{(importMut.error as Error).message}</p> : null}
+        {importMut.isSuccess ? <div className="rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-800 border border-emerald-200">Import finished successfully. See batch history below.</div> : null}
+        {importMut.error ? <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">{(importMut.error as Error).message}</div> : null}
       </Card>
       <h2 className="mt-8 mb-2 font-medium">Batch history</h2>
       {!history.data?.length ? (

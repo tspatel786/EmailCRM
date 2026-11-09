@@ -174,6 +174,8 @@ export function Confirm({
   confirmLabel = "Confirm",
   onConfirm,
   onClose,
+  loading = false,
+  error = null,
 }: {
   open: boolean;
   title: string;
@@ -181,16 +183,26 @@ export function Confirm({
   confirmLabel?: string;
   onConfirm: () => void;
   onClose: () => void;
+  loading?: boolean;
+  error?: string | null;
 }) {
   return (
     <Modal open={open} title={title} onClose={onClose}>
-      <p className="mb-5 text-sm text-slate-600 leading-relaxed">{body}</p>
+      <p className="mb-4 text-sm text-slate-600 leading-relaxed">{body}</p>
+      {error ? (
+        <div className="mb-4 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+          {error}
+        </div>
+      ) : null}
       <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm}>{confirmLabel}</Button>
+        <Button variant="danger" onClick={onConfirm} disabled={loading}>
+          {loading ? "Processing..." : confirmLabel}
+        </Button>
       </div>
     </Modal>
   );
 }
+

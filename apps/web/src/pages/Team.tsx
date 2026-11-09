@@ -32,20 +32,41 @@ export function TeamPage() {
       if (!canInviteRole(org!.role, role as AppRole)) throw new Error("You cannot assign that role");
       return invokeFunction("invite-member", {
         organizationId: org!.organization_id,
-        email,
-        full_name: fullName,
+        email: email.trim(),
+        full_name: fullName.trim(),
         role,
       });
     },
     onSuccess: () => {
       setOpen(false);
+      setEmail("");
+      setFullName("");
+      setRole("sales_executive");
       void qc.invalidateQueries({ queryKey: ["team"] });
+    },
+    onError: (err) => {
+      console.error("Invite member failed:", err);
     },
   });
 
   return (
     <div>
-      <PageHeader title="Team" subtitle="Public signup is disabled. Members join by invite only." actions={admin ? <Button onClick={() => setOpen(true)}>+ Invite Member</Button> : null} />
+      <PageHeader
+        title="Team"
+        subtitle="Public signup is disabled. Members join by invite only."
+        actions={
+          admin ? (
+            <Button
+              onClick={() => {
+                invite.reset();
+                setOpen(true);
+              }}
+            >
+              + Invite Member
+            </Button>
+          ) : null
+        }
+      />
       {!members.data?.length ? (
         <Empty title="No members visible" />
       ) : (
@@ -78,11 +99,17 @@ export function TeamPage() {
             invite.mutate();
           }}
         >
+          {invite.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(invite.error as Error).message}
+            </div>
+          ) : null}
+
           <Field label="Full name">
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="e.g. Rahul Sharma" />
           </Field>
           <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="user@example.com" />
           </Field>
           <Field label="Role">
             <Select value={role} onChange={(e) => setRole(e.target.value)}>
@@ -91,10 +118,9 @@ export function TeamPage() {
               ))}
             </Select>
           </Field>
-          <Button type="submit" disabled={invite.isPending}>
-            Send invite
+          <Button type="submit" disabled={invite.isPending} className="w-full">
+            {invite.isPending ? "Sending invite..." : "Send invite"}
           </Button>
-          {invite.error ? <p className="text-sm text-rose-700">{(invite.error as Error).message}</p> : null}
         </form>
       </Modal>
     </div>

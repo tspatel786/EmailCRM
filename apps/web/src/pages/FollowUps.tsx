@@ -73,12 +73,13 @@ export function FollowUpsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
+      if (!org?.organization_id || !user?.id) throw new Error("Not signed in or no organization selected");
       const dueIso = values.due_at && values.due_at.trim() ? new Date(values.due_at).toISOString() : null;
       const { error } = await supabase.from("tasks").insert({
         ...values,
         recurrence_rule: values.recurrence_rule === "none" ? null : values.recurrence_rule,
-        organization_id: org!.organization_id,
-        created_by: user!.id,
+        organization_id: org.organization_id,
+        created_by: user.id,
         due_at: dueIso,
       });
       if (error) throw error;
@@ -90,10 +91,14 @@ export function FollowUpsPage() {
       setOpen(false);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Create task failed:", err);
+    },
   });
 
   const complete = useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      if (!org?.organization_id || !user?.id) throw new Error("Not signed in");
       const current = (list.data ?? []).find((t) => t.id === id);
       const { error } = await supabase
         .from("tasks")
@@ -104,13 +109,13 @@ export function FollowUpsPage() {
         const next = new Date(current.due_at);
         next.setDate(next.getDate() + (current.recurrence_rule === "weekly" ? 7 : 1));
         await supabase.from("tasks").insert({
-          organization_id: org!.organization_id,
+          organization_id: org.organization_id,
           contact_id: current.contact_id,
           title: current.title,
           description: current.description,
           kind: current.kind,
           assigned_to: current.assigned_to,
-          created_by: user!.id,
+          created_by: user.id,
           due_at: next.toISOString(),
           priority: current.priority,
           status: "pending",
@@ -126,6 +131,9 @@ export function FollowUpsPage() {
       await qc.invalidateQueries({ queryKey: ["tasks"] });
       await qc.refetchQueries({ queryKey: ["tasks"] });
     },
+    onError: (err) => {
+      console.error("Complete task failed:", err);
+    },
   });
 
   const startProgress = useMutation({
@@ -136,6 +144,9 @@ export function FollowUpsPage() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["tasks"] });
       await qc.refetchQueries({ queryKey: ["tasks"] });
+    },
+    onError: (err) => {
+      console.error("Start progress failed:", err);
     },
   });
 

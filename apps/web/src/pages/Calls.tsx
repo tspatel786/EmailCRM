@@ -113,22 +113,23 @@ export function CallsPage() {
 
   const create = useMutation({
     mutationFn: async (values: Form) => {
+      if (!org?.organization_id || !user?.id) throw new Error("Not signed in or no organization selected");
       const calledAtIso = values.called_at && values.called_at.trim() ? new Date(values.called_at).toISOString() : new Date().toISOString();
       const followUpIso = values.follow_up_at && values.follow_up_at.trim() ? new Date(values.follow_up_at).toISOString() : null;
       const { data, error } = await supabase
         .from("calls")
         .insert({
           ...values,
-          organization_id: org!.organization_id,
-          employee_id: user!.id,
+          organization_id: org.organization_id,
+          employee_id: user.id,
           called_at: calledAtIso,
           follow_up_at: followUpIso,
         })
         .select()
         .single();
       if (error) throw error;
-      await supabase.rpc("record_activity", {
-        p_org: org!.organization_id,
+      const { error: rpcErr } = await supabase.rpc("record_activity", {
+        p_org: org.organization_id,
         p_contact: values.contact_id,
         p_company: null,
         p_type: "call",
@@ -138,14 +139,15 @@ export function CallsPage() {
         p_source_id: data.id,
         p_next_follow_up: followUpIso,
       });
+      if (rpcErr) console.warn("Failed to record activity log for call:", rpcErr);
       if (followUpIso) {
         await supabase.from("tasks").insert({
-          organization_id: org!.organization_id,
+          organization_id: org.organization_id,
           contact_id: values.contact_id,
           title: "Follow up after call",
           kind: "follow_up",
-          assigned_to: user!.id,
-          created_by: user!.id,
+          assigned_to: user.id,
+          created_by: user.id,
           due_at: followUpIso,
           priority: values.priority,
           related_call_id: data.id,
@@ -159,6 +161,9 @@ export function CallsPage() {
       await qc.refetchQueries({ queryKey: ["calls"] });
       setOpen(false);
       form.reset();
+    },
+    onError: (err) => {
+      console.error("Save call log failed:", err);
     },
   });
 
@@ -190,6 +195,9 @@ export function CallsPage() {
       await qc.invalidateQueries({ queryKey: ["calls"] });
       await qc.refetchQueries({ queryKey: ["calls"] });
       setEditingCall(null);
+    },
+    onError: (err) => {
+      console.error("Update call failed:", err);
     },
   });
 

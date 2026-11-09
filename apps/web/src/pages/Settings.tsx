@@ -73,7 +73,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Tenant settings and optional TOTP MFA for privileged users. Zoho SMTP secrets are never stored here." />
+      <PageHeader title="Settings" subtitle="Tenant settings and optional TOTP MFA for privileged users. SMTP credentials are never stored in the browser." />
       {admin ? (
         <Card className="max-w-lg space-y-3">
           {save.error ? (

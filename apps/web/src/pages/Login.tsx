@@ -85,14 +85,25 @@ export function LoginPage() {
               e.preventDefault();
               setBusy(true);
               setError(null);
-              const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-              setBusy(false);
-              if (err) {
+              try {
+                const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+                if (err) {
+                  setError(
+                    err.message === "Invalid login credentials"
+                      ? "Invalid email or password. Please check and try again."
+                      : err.message
+                  );
+                }
+              } catch (ex: any) {
+                console.error("Login failed with exception:", ex);
+                const isNetwork = ex?.message?.includes("fetch") || ex?.name === "TypeError";
                 setError(
-                  err.message === "Invalid login credentials"
-                    ? "Invalid email or password. Please check and try again."
-                    : err.message
+                  isNetwork
+                    ? "Cannot reach database server. The Supabase project is currently paused or inactive. Please restore the project from your Supabase dashboard."
+                    : ex?.message || "Failed to sign in. Please try again."
                 );
+              } finally {
+                setBusy(false);
               }
             }}
           >

@@ -362,6 +362,8 @@ export function TemplatesPage() {
         title="Archive this template?"
         body="The template will be hidden. Existing campaigns that copied its content are not affected."
         confirmLabel="Archive"
+        loading={archive.isPending}
+        error={(archive.error as Error)?.message}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => { if (deleteTarget) archive.mutate(deleteTarget); }}
       />

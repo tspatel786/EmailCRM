@@ -244,11 +244,23 @@ export function CampaignDetailPage() {
   });
 
   const queue = useMutation({
-    mutationFn: async () => invokeFunction("queue-campaign", { campaignId: id, confirmed: true }),
+    mutationFn: async () => {
+      try {
+        return await invokeFunction("queue-campaign", { campaignId: id, confirmed: true });
+      } catch (err: any) {
+        console.warn("Edge function queue-campaign failed or not deployed, falling back to database RPC:", err);
+        const { data, error } = await supabase.rpc("queue_campaign", { p_campaign_id: id, p_confirmed: true });
+        if (error) throw error;
+        return data;
+      }
+    },
     onSuccess: () => {
       setConfirmQueue(false);
       void qc.invalidateQueries({ queryKey: ["campaign", id] });
       void qc.invalidateQueries({ queryKey: ["jobs", id] });
+    },
+    onError: (err) => {
+      console.error("Failed to queue campaign:", err);
     },
   });
 
@@ -262,6 +274,9 @@ export function CampaignDetailPage() {
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["campaign", id] }),
+    onError: (err) => {
+      console.error("Failed to update campaign status:", err);
+    },
   });
 
   const c = campaign.data;
@@ -281,13 +296,13 @@ export function CampaignDetailPage() {
                 </Button>
               ) : null}
               {c.status === "sending" || c.status === "queued" ? (
-                <Button variant="secondary" onClick={() => pause.mutate("paused")}>
-                  Pause
+                <Button variant="secondary" onClick={() => pause.mutate("paused")} disabled={pause.isPending}>
+                  {pause.isPending ? "Pausing..." : "Pause"}
                 </Button>
               ) : null}
               {["queued", "sending", "paused", "scheduled"].includes(c.status) ? (
-                <Button variant="danger" onClick={() => pause.mutate("cancelled")}>
-                  Cancel remaining
+                <Button variant="danger" onClick={() => pause.mutate("cancelled")} disabled={pause.isPending}>
+                  {pause.isPending ? "Cancelling..." : "Cancel remaining"}
                 </Button>
               ) : null}
               <Button
@@ -368,10 +383,11 @@ export function CampaignDetailPage() {
         title="Queue this campaign?"
         body="Jobs will be created only for contacts with granted consent (if required) and who are not suppressed. Duplicate campaign+contact jobs are ignored."
         confirmLabel="Queue"
+        loading={queue.isPending}
+        error={(queue.error as Error)?.message}
         onClose={() => setConfirmQueue(false)}
         onConfirm={() => queue.mutate()}
       />
-      {queue.error ? <p className="mt-2 text-sm text-rose-700">{(queue.error as Error).message}</p> : null}
       {pause.error ? <p className="mt-2 text-sm text-rose-700">{(pause.error as Error).message}</p> : null}
       <p className="mt-4 text-sm">
         <Link to="/app/campaigns">Back</Link>

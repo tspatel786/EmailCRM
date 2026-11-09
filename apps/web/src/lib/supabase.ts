@@ -17,7 +17,20 @@ export const supabase = createClient(url || "http://127.0.0.1:54321", anon || "p
 
 export async function invokeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) throw error;
+  if (error) {
+    let detailedMsg = error.message;
+    if ("context" in error && error.context) {
+      try {
+        const errJson = await (error.context as Response).json();
+        if (errJson?.error) detailedMsg = errJson.error;
+        if (errJson?.detail) detailedMsg += `: ${errJson.detail}`;
+      } catch {
+        // Response body wasn't JSON
+      }
+    }
+    console.error(`[EdgeFunction:${name}] invocation failed:`, detailedMsg, error);
+    throw new Error(detailedMsg || `Edge function ${name} failed`);
+  }
   if (data && typeof data === "object" && "error" in data && data.error) {
     throw new Error(String((data as { error: string }).error));
   }
