@@ -62,6 +62,9 @@ export function DealsPage() {
       setOpen(false);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Create deal failed:", err);
+    },
   });
 
   async function executeDealMove(id: string, stage: string, lossReasonText?: string) {
@@ -109,6 +112,9 @@ export function DealsPage() {
         return;
       }
       await executeDealMove(id, stage);
+    },
+    onError: (err) => {
+      console.error("Move deal stage failed:", err);
     },
   });
 

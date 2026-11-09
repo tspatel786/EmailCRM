@@ -104,6 +104,9 @@ export function MeetingsPage() {
       setEditTarget(null);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Save meeting failed:", err);
+    },
   });
 
   const cancel = useMutation({
@@ -115,6 +118,9 @@ export function MeetingsPage() {
       await qc.invalidateQueries({ queryKey: ["meetings"] });
       await qc.refetchQueries({ queryKey: ["meetings"] });
       setCancelTarget(null);
+    },
+    onError: (err) => {
+      console.error("Cancel meeting failed:", err);
     },
   });
 
@@ -237,6 +243,8 @@ export function MeetingsPage() {
         title="Cancel this meeting?"
         body="The meeting status will be set to cancelled."
         confirmLabel="Cancel meeting"
+        loading={cancel.isPending}
+        error={(cancel.error as Error)?.message}
         onClose={() => setCancelTarget(null)}
         onConfirm={() => { if (cancelTarget) cancel.mutate(cancelTarget); }}
       />

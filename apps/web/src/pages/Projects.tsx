@@ -130,6 +130,9 @@ export function ProjectsPage() {
       setOpen(false);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Create project failed:", err);
+    },
   });
 
   const updateProject = useMutation({
@@ -155,6 +158,9 @@ export function ProjectsPage() {
       await qc.refetchQueries({ queryKey: ["projects"] });
       setSelectedProject(null);
     },
+    onError: (err) => {
+      console.error("Update project failed:", err);
+    },
   });
 
   const addMilestone = useMutation({
@@ -173,6 +179,9 @@ export function ProjectsPage() {
       setNewMilestoneDue("");
       void qc.invalidateQueries({ queryKey: ["project-milestones", selectedProject?.id] });
     },
+    onError: (err) => {
+      console.error("Add milestone failed:", err);
+    },
   });
 
   const toggleMilestone = useMutation({
@@ -185,6 +194,9 @@ export function ProjectsPage() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["project-milestones", selectedProject?.id] });
+    },
+    onError: (err) => {
+      console.error("Toggle milestone failed:", err);
     },
   });
 
@@ -202,6 +214,9 @@ export function ProjectsPage() {
       setSelectedMemberToAdd(null);
       void qc.invalidateQueries({ queryKey: ["project-members", selectedProject?.id] });
     },
+    onError: (err) => {
+      console.error("Add member failed:", err);
+    },
   });
 
   const removeMember = useMutation({
@@ -216,6 +231,9 @@ export function ProjectsPage() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["project-members", selectedProject?.id] });
+    },
+    onError: (err) => {
+      console.error("Remove member failed:", err);
     },
   });
 

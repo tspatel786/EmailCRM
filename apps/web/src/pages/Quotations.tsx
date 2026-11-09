@@ -188,6 +188,9 @@ export function QuotationsPage() {
       form.reset();
       setLineItems([{ id: "1", description: "Standard IT Support Services", quantity: 1, unit_price: 15000 }]);
     },
+    onError: (err) => {
+      console.error("Create quotation failed:", err);
+    },
   });
 
   const createNewVersion = useMutation({
@@ -221,6 +224,9 @@ export function QuotationsPage() {
       void qc.invalidateQueries({ queryKey: ["quotes"] });
       setNewVersionModalQuote(null);
     },
+    onError: (err) => {
+      console.error("Create new quotation version failed:", err);
+    },
   });
 
   const approve = useMutation({
@@ -232,6 +238,9 @@ export function QuotationsPage() {
       if (error) throw error;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["quotes"] }),
+    onError: (err) => {
+      console.error("Approve quotation failed:", err);
+    },
   });
 
   const printPdf = (q: QuotationRow) => {

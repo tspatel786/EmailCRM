@@ -56,6 +56,9 @@ export function CompaniesPage() {
       setOpen(false);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Create company failed:", err);
+    },
   });
 
   const [exporting, setExporting] = useState(false);
