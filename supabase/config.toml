@@ -58,3 +58,6 @@ verify_jwt = false
 
 [functions.organization-bootstrap]
 verify_jwt = true
+
+[functions.send-demo-email]
+verify_jwt = true
