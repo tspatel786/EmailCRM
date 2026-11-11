@@ -88,10 +88,13 @@ export function LoginPage() {
               try {
                 const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
                 if (err) {
+                  const isNetworkErr = err.message?.toLowerCase().includes("fetch") || err.name === "AuthRetryableFetchError";
                   setError(
                     err.message === "Invalid login credentials"
                       ? "Invalid email or password. Please check and try again."
-                      : err.message
+                      : isNetworkErr
+                        ? "Cannot reach Supabase Auth server. Check your network/DNS (enable Chrome Secure DNS 1.1.1.1 or 8.8.8.8 on mobile hotspot) or verify the Supabase project is active."
+                        : err.message
                   );
                 }
               } catch (ex: any) {

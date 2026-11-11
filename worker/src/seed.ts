@@ -2,14 +2,26 @@ import { admin } from "./db.js";
 import { env } from "./env.js";
 
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? "DemoPass123!";
+const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
 
-async function upsertUser(email: string, fullName: string) {
-  const { data: list } = await admin.auth.admin.listUsers();
-  const existing = list.users.find((u) => u.email === email);
-  if (existing) return existing.id;
+async function upsertUser(email: string, fullName: string, passwordOverride?: string) {
+  const targetPassword = passwordOverride || DEMO_PASSWORD;
+  const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  if (listErr) throw listErr;
+  const existing = list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    if (passwordOverride) {
+      const { error: updErr } = await admin.auth.admin.updateUserById(existing.id, {
+        password: passwordOverride,
+        email_confirm: true,
+      });
+      if (updErr) throw updErr;
+    }
+    return existing.id;
+  }
   const { data, error } = await admin.auth.admin.createUser({
     email,
-    password: DEMO_PASSWORD,
+    password: targetPassword,
     email_confirm: true,
     user_metadata: { full_name: fullName },
   });
@@ -22,7 +34,7 @@ async function main() {
     throw new Error("Set SUPABASE_SERVICE_ROLE_KEY before seeding");
   }
 
-  const smPatelOwner = await upsertUser("sales@smpatelithub.in", "S.M. Patel Sales");
+  const smPatelOwner = await upsertUser("sales@smpatelithub.in", "S.M. Patel Sales", OWNER_PASSWORD);
   const ownerId = await upsertUser("owner@demo.local", "Demo Owner");
   const managerId = await upsertUser("manager@demo.local", "Sales Manager");
   const execId = await upsertUser("exec@demo.local", "Sales Executive");
