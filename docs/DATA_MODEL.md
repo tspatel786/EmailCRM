@@ -31,11 +31,13 @@ All tenant tables include `organization_id` unless noted (`profiles` is user-sco
 | `org_email_daily_stats` | Daily send counters |
 | `worker_heartbeats` | Worker liveness |
 | `edge_rate_limits` | Server-side rate buckets for Edge Functions (service role only) |
+| `inquiry_rate_limits` | Per-IP and per-mobile rate buckets for public inquiry submissions (service role only) |
 
 ## Key business rules (also in SQL)
 
 - One active membership per (org, user)
 - Unique `lower(primary_email)` per org among non-archived contacts
+- Public form consent stores `consent_status = 'granted'`, `consent_captured_at`, and `consent_text` on `contacts`
 - Marketing jobs require `consent_status = 'granted'` and no suppression
 - Job claim is atomic (`FOR UPDATE SKIP LOCKED`)
 - Quotations are versioned; a new version supersedes the previous current version

@@ -61,3 +61,6 @@ verify_jwt = true
 
 [functions.send-demo-email]
 verify_jwt = true
+
+[functions.submit-inquiry]
+verify_jwt = false

@@ -11,7 +11,7 @@ apps/web                 React + Vite + TypeScript frontend
 packages/shared          Zod schemas, permissions, import mapping, queue helpers
 worker                   Persistent Node.js SMTP + reminder worker
 supabase/migrations      Schema, RLS, storage, grants
-supabase/functions       invite-member, queue-campaign, unsubscribe, organization-bootstrap
+supabase/functions       invite-member, queue-campaign, unsubscribe, organization-bootstrap, submit-inquiry
 docs                     Architecture, operations, security, backups
 scripts                  Secret scan and optional live RLS checks
 ```
@@ -103,3 +103,4 @@ Never put `SUPABASE_SERVICE_ROLE_KEY`, Zoho app passwords, or `BOOTSTRAP_SECRET`
 | [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md) | Security review |
 | [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Production launch |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common failures |
+| [docs/PUBLIC_FORM.md](docs/PUBLIC_FORM.md) | Public inquiry form (`/inquiry/:orgSlug`), QR code, CORS & Turnstile |

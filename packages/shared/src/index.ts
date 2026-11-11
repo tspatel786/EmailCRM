@@ -4,3 +4,4 @@ export * from "./import-map.js";
 export * from "./smtp-errors.js";
 export * from "./schemas.js";
 export * from "./eligibility.js";
+export * from "./inquiry.js";

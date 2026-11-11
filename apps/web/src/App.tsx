@@ -23,6 +23,7 @@ import { TeamPage } from "./pages/Team";
 import { SettingsPage } from "./pages/Settings";
 import { AuditLogsPage } from "./pages/AuditLogs";
 import { UnsubscribePage } from "./pages/Unsubscribe";
+import { PublicInquiryPage } from "./pages/PublicInquiry";
 
 function Protected({ children }: { children: ReactElement }) {
   const { session, loading, memberships } = useSession();
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/unsubscribe/:token" element={<UnsubscribePage />} />
+      <Route path="/inquiry/:orgSlug" element={<PublicInquiryPage />} />
       <Route
         path="/app"
         element={
