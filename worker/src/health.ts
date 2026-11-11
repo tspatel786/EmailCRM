@@ -14,16 +14,22 @@ export function startHealthServer(state: HealthState): ReturnType<typeof createS
   const server = createServer(async (req, res) => {
     const url = req.url?.split("?")[0];
     if (url === "/health" || url === "/healthz" || url === "/") {
-      const { data } = await admin
-        .from("worker_heartbeats")
-        .select("last_seen_at")
-        .eq("worker_id", env.workerId)
-        .maybeSingle();
+      let heartbeatAt: string | null = null;
+      try {
+        const { data } = await admin
+          .from("worker_heartbeats")
+          .select("last_seen_at")
+          .eq("worker_id", env.workerId)
+          .maybeSingle();
+        heartbeatAt = data?.last_seen_at ?? null;
+      } catch {
+        // Keep /healthz responsive even if Supabase is unreachable
+      }
       const body = {
         ok: true,
         workerId: env.workerId,
         smtpMock: env.smtpMock,
-        heartbeat: data?.last_seen_at ?? null,
+        heartbeat: heartbeatAt,
         ...state,
       };
       res.writeHead(200, { "content-type": "application/json" });

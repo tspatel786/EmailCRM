@@ -73,8 +73,9 @@ export function DealsPage() {
     const { data: deal, error } = await supabase.from("deals").update(patch).eq("id", id).select().single();
     if (error) throw error;
     if (stage === "won" && deal.contact_id) {
-      await supabase.from("contacts").update({ lifecycle: "customer", lead_status: "won" }).eq("id", deal.contact_id);
-      const { data: project } = await supabase
+      const { error: cErr } = await supabase.from("contacts").update({ lifecycle: "customer", lead_status: "won" }).eq("id", deal.contact_id);
+      if (cErr) console.warn("Failed to update contact lifecycle on deal win:", cErr);
+      const { data: project, error: pErr } = await supabase
         .from("projects")
         .insert({
           organization_id: org!.organization_id,
@@ -87,8 +88,9 @@ export function DealsPage() {
         })
         .select()
         .single();
+      if (pErr) console.warn("Failed to auto-create project on deal win:", pErr);
       if (project) await supabase.from("deals").update({ converted_project_id: project.id }).eq("id", id);
-      await supabase.rpc("record_activity", {
+      const { error: actErr } = await supabase.rpc("record_activity", {
         p_org: org!.organization_id,
         p_contact: deal.contact_id,
         p_company: deal.company_id,
@@ -99,19 +101,18 @@ export function DealsPage() {
         p_source_id: deal.id,
         p_next_follow_up: null,
       });
+      if (actErr) console.warn("Failed to record deal win activity:", actErr);
     }
-    void qc.invalidateQueries({ queryKey: ["deals"] });
+    await qc.invalidateQueries({ queryKey: ["deals"] });
   }
 
   const move = useMutation({
-    mutationFn: async ({ id, stage }: { id: string; stage: string }) => {
-      if (stage === "lost") {
-        // H5: open modal instead of window.prompt()
-        setLossModal({ id, stage });
-        setLossReason("");
-        return;
-      }
-      await executeDealMove(id, stage);
+    mutationFn: async ({ id, stage, lossReasonText }: { id: string; stage: string; lossReasonText?: string }) => {
+      await executeDealMove(id, stage, lossReasonText);
+    },
+    onSuccess: () => {
+      setLossModal(null);
+      setLossReason("");
     },
     onError: (err) => {
       console.error("Move deal stage failed:", err);
@@ -144,10 +145,10 @@ export function DealsPage() {
         title="Deals"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setMode(mode === "kanban" ? "list" : "kanban")}>
+            <Button type="button" variant="secondary" onClick={() => setMode(mode === "kanban" ? "list" : "kanban")}>
               {mode === "kanban" ? "List View" : "Kanban View"}
             </Button>
-            <Button variant="secondary" onClick={handleExport} disabled={!list.data?.length}>
+            <Button type="button" variant="secondary" onClick={handleExport} disabled={!list.data?.length}>
               Export Excel
             </Button>
             {writable ? (
@@ -165,6 +166,11 @@ export function DealsPage() {
           </div>
         }
       />
+      {move.error && !lossModal ? (
+        <div className="mb-3 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+          {(move.error as Error).message || "Failed to update deal stage"}
+        </div>
+      ) : null}
       {mode === "kanban" ? (
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map((stage) => (
@@ -177,7 +183,21 @@ export function DealsPage() {
                     <p className="font-medium">{d.title}</p>
                     <p className="text-slate-500">{money(Number(d.estimated_value), d.currency)}</p>
                     {writable && stage !== "won" && stage !== "lost" ? (
-                      <Select className="mt-2" value={d.stage} onChange={(e) => move.mutate({ id: d.id, stage: e.target.value })}>
+                      <Select
+                        className="mt-2"
+                        value={d.stage}
+                        disabled={move.isPending}
+                        onChange={(e) => {
+                          const nextStage = e.target.value;
+                          if (nextStage === "lost") {
+                            move.reset();
+                            setLossModal({ id: d.id, stage: "lost" });
+                            setLossReason("");
+                            return;
+                          }
+                          move.mutate({ id: d.id, stage: nextStage });
+                        }}
+                      >
                         {STAGES.map((s) => (
                           <option key={s}>{s}</option>
                         ))}
@@ -262,21 +282,27 @@ export function DealsPage() {
       {/* H5 fix: Loss reason modal replaces window.prompt() */}
       <Modal open={Boolean(lossModal)} title="Mark as lost" onClose={() => setLossModal(null)}>
         <div className="space-y-3">
+          {move.error ? (
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              {(move.error as Error).message || "Failed to mark deal as lost"}
+            </div>
+          ) : null}
           <Field label="Loss reason">
             <Textarea value={lossReason} onChange={(e) => setLossReason(e.target.value)} placeholder="Why was this deal lost?" rows={3} />
           </Field>
           <div className="flex gap-2">
             <Button
+              type="button"
               variant="danger"
-              onClick={async () => {
+              disabled={move.isPending}
+              onClick={() => {
                 if (!lossModal) return;
-                await executeDealMove(lossModal.id, "lost", lossReason || "unspecified");
-                setLossModal(null);
+                move.mutate({ id: lossModal.id, stage: "lost", lossReasonText: lossReason || "unspecified" });
               }}
             >
-              Confirm loss
+              {move.isPending ? "Saving..." : "Confirm loss"}
             </Button>
-            <Button variant="secondary" onClick={() => setLossModal(null)}>
+            <Button type="button" variant="secondary" disabled={move.isPending} onClick={() => setLossModal(null)}>
               Cancel
             </Button>
           </div>

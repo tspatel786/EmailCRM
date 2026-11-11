@@ -84,7 +84,7 @@ export function ContactDetailPage() {
 
   const addNote = useMutation({
     mutationFn: async () => {
-      await supabase.rpc("record_activity", {
+      const { error } = await supabase.rpc("record_activity", {
         p_org: org!.organization_id,
         p_contact: id,
         p_company: contact.data?.company_id,
@@ -95,10 +95,14 @@ export function ContactDetailPage() {
         p_source_id: id,
         p_next_follow_up: null,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       setNote("");
       void qc.invalidateQueries({ queryKey: ["timeline", id] });
+    },
+    onError: (err) => {
+      console.error("Add note failed:", err);
     },
   });
 
@@ -373,10 +377,15 @@ export function ContactDetailPage() {
       ) : null}
 
       {tab === "Notes" && writable ? (
-        <Card>
+        <Card className="space-y-2">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" />
-          <Button className="mt-2" disabled={!note.trim()} onClick={() => addNote.mutate()}>
-            Save note
+          {addNote.error ? (
+            <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+              {(addNote.error as Error).message || "Failed to save note"}
+            </div>
+          ) : null}
+          <Button type="button" disabled={!note.trim() || addNote.isPending} onClick={() => addNote.mutate()}>
+            {addNote.isPending ? "Saving..." : "Save note"}
           </Button>
         </Card>
       ) : null}
@@ -411,6 +420,8 @@ export function ContactDetailPage() {
         title="Archive contact?"
         body="The record is hidden from default lists. Communication history is retained."
         confirmLabel="Archive"
+        loading={archive.isPending}
+        error={(archive.error as Error)?.message}
         onClose={() => setConfirmArchive(false)}
         onConfirm={() => archive.mutate()}
       />

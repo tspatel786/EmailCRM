@@ -141,7 +141,7 @@ export function CallsPage() {
       });
       if (rpcErr) console.warn("Failed to record activity log for call:", rpcErr);
       if (followUpIso) {
-        await supabase.from("tasks").insert({
+        const { error: taskErr } = await supabase.from("tasks").insert({
           organization_id: org.organization_id,
           contact_id: values.contact_id,
           title: "Follow up after call",
@@ -152,6 +152,7 @@ export function CallsPage() {
           priority: values.priority,
           related_call_id: data.id,
         });
+        if (taskErr) console.warn("Failed to create follow-up task for call:", taskErr);
       }
     },
     onSuccess: async () => {

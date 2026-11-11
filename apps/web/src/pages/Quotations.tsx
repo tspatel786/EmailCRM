@@ -169,7 +169,7 @@ export function QuotationsPage() {
         .single();
       if (error) throw error;
 
-      await supabase.from("quotation_versions").insert({
+      const { error: verErr } = await supabase.from("quotation_versions").insert({
         organization_id: org!.organization_id,
         quotation_id: data.id,
         version_number: 1,
@@ -178,6 +178,7 @@ export function QuotationsPage() {
         total_amount: computedTotal || values.total_amount,
         created_by: user!.id,
       });
+      if (verErr) throw verErr;
     },
     onSuccess: async () => {
       setPage(1);
@@ -276,6 +277,7 @@ export function QuotationsPage() {
   };
 
   const openNewVersionDialog = async (q: QuotationRow) => {
+    createNewVersion.reset();
     setNewVersionModalQuote(q);
     // fetch latest version line items
     const { data } = await supabase
@@ -369,6 +371,12 @@ export function QuotationsPage() {
           className="max-w-xs"
         />
       </div>
+
+      {approve.error ? (
+        <div className="mb-4 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+          {(approve.error as Error).message || "Failed to approve quotation"}
+        </div>
+      ) : null}
 
       {!pageQuotes.length ? (
         <Empty title="No quotations found" hint={search ? "Try adjusting your search" : "Create a quotation to send estimates to clients."} />
@@ -631,6 +639,12 @@ export function QuotationsPage() {
             <Field label="Revision Notes (HTML)">
               <Textarea rows={3} value={newVersionBody} onChange={(e) => setNewVersionBody(e.target.value)} />
             </Field>
+
+            {createNewVersion.error ? (
+              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+                {(createNewVersion.error as Error).message || "Failed to create revision"}
+              </div>
+            ) : null}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => setNewVersionModalQuote(null)}>

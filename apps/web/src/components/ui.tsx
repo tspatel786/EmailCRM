@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -24,12 +24,10 @@ export function Card({ children, className }: { children: ReactNode; className?:
   );
 }
 
-export function Button({
-  variant = "primary",
-  children,
-  className,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger" }) {
+export const Button = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger" }
+>(function Button({ variant = "primary", children, className, ...props }, ref) {
   const styles = {
     primary:
       "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold shadow-sm shadow-amber-500/25 hover:shadow-md hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0 active:shadow-none",
@@ -41,6 +39,7 @@ export function Button({
   };
   return (
     <button
+      ref={ref}
       className={cn(
         "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 select-none",
         styles[variant],
@@ -51,11 +50,12 @@ export function Button({
       {children}
     </button>
   );
-}
+});
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(props, ref) {
   return (
     <input
+      ref={ref}
       {...props}
       className={cn(
         "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10 disabled:bg-slate-50 disabled:text-slate-400",
@@ -63,11 +63,12 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
       )}
     />
   );
-}
+});
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(props, ref) {
   return (
     <textarea
+      ref={ref}
       {...props}
       className={cn(
         "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10 disabled:bg-slate-50 disabled:text-slate-400",
@@ -75,11 +76,12 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
       )}
     />
   );
-}
+});
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(props, ref) {
   return (
     <select
+      ref={ref}
       {...props}
       className={cn(
         "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 shadow-sm transition-all duration-150 focus:border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/10 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer",
@@ -87,7 +89,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
       )}
     />
   );
-}
+});
 
 export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
@@ -154,6 +156,7 @@ export function Modal({
         <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
           <h2 className="text-lg font-bold text-slate-900 font-['Space_Grotesk']">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             aria-label="Close"
@@ -195,10 +198,10 @@ export function Confirm({
         </div>
       ) : null}
       <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
-        <Button variant="secondary" onClick={onClose} disabled={loading}>
+        <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm} disabled={loading}>
+        <Button type="button" variant="danger" onClick={onConfirm} disabled={loading}>
           {loading ? "Processing..." : confirmLabel}
         </Button>
       </div>

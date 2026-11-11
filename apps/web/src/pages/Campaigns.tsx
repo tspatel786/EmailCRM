@@ -75,6 +75,9 @@ export function CampaignsPage() {
       setOpen(false);
       form.reset();
     },
+    onError: (err) => {
+      console.error("Create campaign failed:", err);
+    },
   });
 
   return (
@@ -174,9 +177,9 @@ export function CampaignsPage() {
                 form.register("template_id").onChange(e);
                 const t = templates.data?.find((x) => x.id === e.target.value);
                 if (t) {
-                  form.setValue("subject", t.subject);
-                  form.setValue("body_text", t.body_text);
-                  form.setValue("body_html", t.body_html);
+                  form.setValue("subject", t.subject ?? "");
+                  form.setValue("body_text", t.body_text ?? "");
+                  form.setValue("body_html", t.body_html ?? "");
                 }
               }}
             >

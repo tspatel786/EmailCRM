@@ -481,27 +481,34 @@ export function ProjectsPage() {
               )}
 
               {writable && (
-                <div className="flex gap-2 pt-2">
-                  <Input
-                    placeholder="New milestone title"
-                    value={newMilestoneTitle}
-                    onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="date"
-                    value={newMilestoneDue}
-                    onChange={(e) => setNewMilestoneDue(e.target.value)}
-                    className="w-36"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={!newMilestoneTitle.trim() || addMilestone.isPending}
-                    onClick={() => addMilestone.mutate()}
-                  >
-                    Add
-                  </Button>
+                <div className="space-y-2 pt-2">
+                  {(addMilestone.error || toggleMilestone.error) ? (
+                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+                      {((addMilestone.error || toggleMilestone.error) as Error).message || "Milestone update failed"}
+                    </div>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="New milestone title"
+                      value={newMilestoneTitle}
+                      onChange={(e) => setNewMilestoneTitle(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="date"
+                      value={newMilestoneDue}
+                      onChange={(e) => setNewMilestoneDue(e.target.value)}
+                      className="w-36"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={!newMilestoneTitle.trim() || addMilestone.isPending}
+                      onClick={() => addMilestone.mutate()}
+                    >
+                      {addMilestone.isPending ? "Adding..." : "Add"}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -531,18 +538,25 @@ export function ProjectsPage() {
               )}
 
               {writable && (
-                <div className="flex gap-2 pt-1">
-                  <div className="flex-1">
-                    <MemberSelect value={selectedMemberToAdd} onChange={(val) => setSelectedMemberToAdd(val)} allowEmpty />
+                <div className="space-y-2 pt-1">
+                  {(addMember.error || removeMember.error) ? (
+                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+                      {((addMember.error || removeMember.error) as Error).message || "Team member update failed"}
+                    </div>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <MemberSelect value={selectedMemberToAdd} onChange={(val) => setSelectedMemberToAdd(val)} allowEmpty />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={!selectedMemberToAdd || addMember.isPending}
+                      onClick={() => addMember.mutate()}
+                    >
+                      {addMember.isPending ? "Assigning..." : "Assign Member"}
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={!selectedMemberToAdd || addMember.isPending}
-                    onClick={() => addMember.mutate()}
-                  >
-                    Assign Member
-                  </Button>
                 </div>
               )}
             </div>
