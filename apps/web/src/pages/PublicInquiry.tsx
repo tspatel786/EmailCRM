@@ -44,6 +44,11 @@ const COPY: Record<
     servicePlaceholder: string;
     messageLabel: string;
     messagePlaceholder: string;
+    captchaLabel: string;
+    captchaPlaceholder: string;
+    captchaRefresh: string;
+    captchaLoading: string;
+    captchaLoadError: string;
     consentLabel: string;
     submit: string;
     submitting: string;
@@ -56,6 +61,7 @@ const COPY: Record<
       rate_limited: string;
       verification_required: string;
       verification_failed: string;
+      verification_expired: string;
       generic: string;
     };
   }
@@ -76,6 +82,11 @@ const COPY: Record<
     servicePlaceholder: "सेवा निवडा",
     messageLabel: "संदेश / गरज (ऐच्छिक)",
     messagePlaceholder: "तुमच्या प्रकल्पाबद्दल थोडक्यात माहिती लिहा...",
+    captchaLabel: "सुरक्षा पडताळणी (Captcha) *",
+    captchaPlaceholder: "वरील बेरजेचे उत्तर लिहा",
+    captchaRefresh: "नवीन प्रश्न",
+    captchaLoading: "लोड होत आहे...",
+    captchaLoadError: "सुरक्षा प्रश्न लोड होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.",
     consentLabel: "मी S.M.Patel IT Hub कडून संपर्क साधण्यास सहमती देतो/देते.",
     submit: "चौकशी पाठवा",
     submitting: "पाठवत आहे...",
@@ -100,12 +111,15 @@ const COPY: Record<
       company_too_long: "कंपनीचे नाव खूप मोठे आहे.",
       service_required: "कृपया आवश्यक सेवा निवडा.",
       message_too_long: "संदेश २००० अक्षरांपेक्षा कमी असावा.",
+      captcha_required: "कृपया वरील Captcha उत्तर लिहा.",
+      captcha_invalid: "कृपया वैध Captcha उत्तर लिहा.",
       consent_required: "पुढे जाण्यासाठी कृपया संमती द्या.",
     },
     apiErrors: {
       rate_limited: "खूप जास्त विनंत्या आल्या आहेत. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.",
       verification_required: "कृपया सुरक्षा पडताळणी पूर्ण करा.",
-      verification_failed: "सुरक्षा पडताळणी अयशस्वी झाली. कृपया पुन्हा प्रयत्न करा.",
+      verification_failed: "Captcha उत्तर चुकीचे आहे. कृपया नवीन प्रश्न तपासा.",
+      verification_expired: "Captcha वेळ संपली आहे. कृपया नवीन प्रश्न सोडवा.",
       generic: "चौकशी पाठवता आली नाही. कृपया नंतर पुन्हा प्रयत्न करा.",
     },
   },
@@ -125,6 +139,11 @@ const COPY: Record<
     servicePlaceholder: "Select a service",
     messageLabel: "Message (Optional)",
     messagePlaceholder: "Tell us briefly about what you need...",
+    captchaLabel: "Security Captcha *",
+    captchaPlaceholder: "Enter answer",
+    captchaRefresh: "Refresh",
+    captchaLoading: "Loading...",
+    captchaLoadError: "Could not load security captcha. Please retry.",
     consentLabel: INQUIRY_CONSENT_TEXT,
     submit: "Submit Inquiry",
     submitting: "Submitting...",
@@ -149,12 +168,15 @@ const COPY: Record<
       company_too_long: "Company name is too long.",
       service_required: "Please select a service.",
       message_too_long: "Message must be 2000 characters or less.",
+      captcha_required: "Please enter the security captcha answer.",
+      captcha_invalid: "Please enter a valid numeric captcha answer.",
       consent_required: "Please accept the contact consent checkbox.",
     },
     apiErrors: {
       rate_limited: "Too many submissions from your connection. Please try again later.",
       verification_required: "Please complete the verification check.",
-      verification_failed: "Verification failed. Please try again.",
+      verification_failed: "Captcha answer is incorrect. Please try the new question.",
+      verification_expired: "Captcha expired. Please solve the new question.",
       generic: "Could not submit your inquiry right now. Please try again.",
     },
   },
@@ -167,6 +189,10 @@ export function PublicInquiryPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(true);
+  const [captchaLoadFailed, setCaptchaLoadFailed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
 
@@ -183,10 +209,54 @@ export function PublicInquiryPage() {
       service: "Website",
       message: "",
       consent: false,
+      captcha_answer: "",
+      captcha_token: "",
       website_url: "",
       turnstile_token: "",
     },
   });
+
+  async function loadCaptcha() {
+    setCaptchaLoading(true);
+    setCaptchaLoadFailed(false);
+    try {
+      const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || "http://127.0.0.1:54321";
+      const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || "public-anon-key";
+      const res = await fetch(`${supabaseUrl}/functions/v1/submit-inquiry`, {
+        method: "GET",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+      });
+      if (!res.ok) {
+        setCaptchaLoadFailed(true);
+        setCaptchaQuestion("");
+        setCaptchaToken("");
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as { question?: string; token?: string } | null;
+      if (!data?.question || !data?.token) {
+        setCaptchaLoadFailed(true);
+        return;
+      }
+      setCaptchaQuestion(data.question);
+      setCaptchaToken(data.token);
+      form.setValue("captcha_answer", "");
+    } catch {
+      setCaptchaLoadFailed(true);
+      setCaptchaQuestion("");
+      setCaptchaToken("");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!submitted) {
+      void loadCaptcha();
+    }
+  }, [submitted]);
 
   useEffect(() => {
     if (!turnstileSiteKey || submitted || !turnstileRef.current) return;
@@ -236,6 +306,7 @@ export function PublicInquiryPage() {
     if (code === "rate_limited") return t.apiErrors.rate_limited;
     if (code === "verification_required") return t.apiErrors.verification_required;
     if (code === "verification_failed") return t.apiErrors.verification_failed;
+    if (code === "verification_expired") return t.apiErrors.verification_expired;
     return t.apiErrors.generic;
   }
 
@@ -243,6 +314,10 @@ export function PublicInquiryPage() {
     setServerError(null);
     if (!orgSlug) {
       setServerError(t.apiErrors.generic);
+      return;
+    }
+    if (!captchaToken) {
+      setServerError(t.captchaLoadError);
       return;
     }
     if (turnstileSiteKey && !turnstileToken) {
@@ -265,6 +340,7 @@ export function PublicInquiryPage() {
         body: JSON.stringify({
           ...values,
           orgSlug,
+          captcha_token: captchaToken,
           turnstile_token: turnstileToken || undefined,
         }),
       });
@@ -272,6 +348,7 @@ export function PublicInquiryPage() {
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !data?.ok) {
         setServerError(translateApiError(data?.error));
+        void loadCaptcha();
         if (widgetIdRef.current && window.turnstile) {
           window.turnstile.reset(widgetIdRef.current);
           setTurnstileToken("");
@@ -427,9 +504,50 @@ export function PublicInquiryPage() {
                 ) : null}
               </div>
 
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    {t.captchaLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void loadCaptcha()}
+                    disabled={captchaLoading}
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 underline cursor-pointer disabled:opacity-50"
+                  >
+                    ↻ {t.captchaRefresh}
+                  </button>
+                </div>
+                {captchaLoadFailed ? (
+                  <p className="text-xs font-medium text-rose-600">{t.captchaLoadError}</p>
+                ) : (
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm font-bold tracking-wider text-slate-900 select-none shadow-sm"
+                      aria-live="polite"
+                    >
+                      {captchaLoading ? t.captchaLoading : captchaQuestion}
+                    </div>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={t.captchaPlaceholder}
+                      maxLength={20}
+                      disabled={captchaLoading}
+                      {...form.register("captcha_answer")}
+                    />
+                  </div>
+                )}
+                {form.formState.errors.captcha_answer?.message ? (
+                  <span className="text-xs font-medium text-rose-600 block">
+                    {translateFieldError(form.formState.errors.captcha_answer.message)}
+                  </span>
+                ) : null}
+              </div>
+
               {turnstileSiteKey ? <div ref={turnstileRef} className="pt-1" /> : null}
 
-              <Button type="submit" disabled={submitting} className="w-full">
+              <Button type="submit" disabled={submitting || captchaLoading || captchaLoadFailed} className="w-full">
                 {submitting ? t.submitting : t.submit}
               </Button>
             </form>

@@ -62,6 +62,16 @@ export function indianMobileVariants(mobile10: string): string[] {
   ];
 }
 
+/**
+ * Parse a numeric CAPTCHA answer strictly as a finite integer, or return null.
+ */
+export function parseCaptchaAnswer(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!/^-?\d{1,6}$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
 const optionalCleanText = (maxLen: number, code: string) =>
   z.preprocess(
     (val) => {
@@ -106,6 +116,11 @@ export const publicInquirySchema = z.object({
   }),
   message: optionalCleanText(2000, "message_too_long"),
   consent: z.boolean().refine((v) => v === true, { message: "consent_required" }),
+  captcha_answer: z.preprocess(
+    (val) => (typeof val === "string" ? val.trim() : ""),
+    z.string().min(1, "captcha_required").max(20, "captcha_invalid"),
+  ),
+  captcha_token: z.string().max(512).optional().default(""),
   website_url: z.string().max(200).optional().default(""),
   turnstile_token: z.string().max(2048).optional().default(""),
 });

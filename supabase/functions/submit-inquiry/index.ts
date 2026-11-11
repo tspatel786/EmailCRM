@@ -4,6 +4,7 @@ import {
   findDuplicateContact,
   indianMobileVariants,
   INQUIRY_CONSENT_TEXT,
+  parseCaptchaAnswer,
   publicInquirySchema,
   type InquiryContactCandidate,
 } from "../../../packages/shared/src/inquiry.ts";
@@ -33,13 +34,83 @@ function resolveCorsOrigin(req: Request): string | null {
 function buildCorsHeaders(allowedOrigin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     Vary: "Origin",
   };
   if (allowedOrigin) {
     headers["Access-Control-Allow-Origin"] = allowedOrigin;
   }
   return headers;
+}
+
+const CAPTCHA_TTL_MS = 10 * 60 * 1000;
+
+async function hmacSignHex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function createCaptchaChallenge(secret: string): Promise<{ question: string; token: string }> {
+  const rand = new Uint32Array(2);
+  crypto.getRandomValues(rand);
+  const a = (rand[0]! % 18) + 2; // 2..19
+  const b = (rand[1]! % 9) + 1;  // 1..9
+  const nonce = crypto.randomUUID();
+  const exp = Date.now() + CAPTCHA_TTL_MS;
+  const sig = await hmacSignHex(secret, `${nonce}.${exp}.${a + b}`);
+  return {
+    question: `${a} + ${b} = ?`,
+    token: `${nonce}.${exp}.${sig}`,
+  };
+}
+
+async function verifySignedCaptcha(
+  admin: SupabaseClient,
+  secret: string,
+  token: string,
+  answerRaw: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const answer = parseCaptchaAnswer(answerRaw);
+  if (answer === null) return { ok: false, error: "verification_failed" };
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return { ok: false, error: "verification_failed" };
+  const [nonce, expStr, sig] = parts as [string, string, string];
+  const exp = Number(expStr);
+  if (!nonce || !Number.isFinite(exp) || Date.now() > exp) {
+    return { ok: false, error: "verification_expired" };
+  }
+
+  const expectedSig = await hmacSignHex(secret, `${nonce}.${exp}.${answer}`);
+  if (!constantTimeEqual(sig, expectedSig)) {
+    return { ok: false, error: "verification_failed" };
+  }
+
+  // Enforce single-use nonce so bots cannot replay the same solved CAPTCHA token.
+  const unused = await consumeInquiryLimit(admin, `captcha:${nonce}`, 1);
+  if (!unused) {
+    return { ok: false, error: "verification_expired" };
+  }
+  return { ok: true };
 }
 
 function jsonResponse(body: unknown, status: number, corsHeaders: Record<string, string>): Response {
@@ -116,15 +187,24 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "origin_not_allowed" }, 403, corsHeaders);
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse({ error: "method_not_allowed" }, 405, corsHeaders);
-  }
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceKey) {
     console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
     return jsonResponse({ error: "service_unavailable" }, 500, corsHeaders);
+  }
+  const captchaSecret = Deno.env.get("CAPTCHA_SECRET")?.trim() || serviceKey;
+
+  if (req.method === "GET") {
+    const challenge = await createCaptchaChallenge(captchaSecret);
+    return new Response(JSON.stringify(challenge), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "method_not_allowed" }, 405, corsHeaders);
   }
 
   const body = await req.json().catch(() => null);
@@ -163,6 +243,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(supabaseUrl, serviceKey);
+
+  const captchaCheck = await verifySignedCaptcha(
+    admin,
+    captchaSecret,
+    parsed.captcha_token ?? "",
+    parsed.captcha_answer,
+  );
+  if (!captchaCheck.ok) {
+    return jsonResponse({ error: captchaCheck.error ?? "verification_failed" }, 403, corsHeaders);
+  }
 
   // Enforce per-IP and per-mobile rate limits (max 5/hour each).
   const ipAllowed = await consumeInquiryLimit(admin, `ip:${clientIp}`, MAX_PER_HOUR_IP);

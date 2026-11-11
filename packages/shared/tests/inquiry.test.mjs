@@ -4,6 +4,7 @@ import {
   findDuplicateContact,
   indianMobileVariants,
   normalizeIndianMobile,
+  parseCaptchaAnswer,
   publicInquirySchema,
   stripHtml,
 } from "../dist/inquiry.js";
@@ -32,6 +33,7 @@ test("publicInquirySchema validates required fields, strips HTML, and normalizes
     service: "Website",
     message: "<p>Need a business site</p>",
     consent: true,
+    captcha_answer: " 15 ",
     website_url: "",
   });
 
@@ -42,6 +44,7 @@ test("publicInquirySchema validates required fields, strips HTML, and normalizes
   assert.equal(parsed.service, "Website");
   assert.equal(parsed.message, "Need a business site");
   assert.equal(parsed.consent, true);
+  assert.equal(parsed.captcha_answer, "15");
 });
 
 test("publicInquirySchema allows empty optional email, company, and message", () => {
@@ -53,6 +56,7 @@ test("publicInquirySchema allows empty optional email, company, and message", ()
     service: "WhatsApp Bot",
     message: "",
     consent: true,
+    captcha_answer: "9",
   });
 
   assert.equal(parsed.email, "");
@@ -60,20 +64,31 @@ test("publicInquirySchema allows empty optional email, company, and message", ()
   assert.equal(parsed.message, "");
 });
 
-test("publicInquirySchema rejects missing consent, invalid mobile, invalid email, and oversized fields", () => {
+test("publicInquirySchema rejects missing consent, missing captcha, invalid mobile, invalid email, and oversized fields", () => {
   const noConsent = publicInquirySchema.safeParse({
     name: "Test",
     mobile: "9876543210",
     service: "Website",
     consent: false,
+    captcha_answer: "8",
   });
   assert.equal(noConsent.success, false);
+
+  const noCaptcha = publicInquirySchema.safeParse({
+    name: "Test",
+    mobile: "9876543210",
+    service: "Website",
+    consent: true,
+    captcha_answer: "",
+  });
+  assert.equal(noCaptcha.success, false);
 
   const badMobile = publicInquirySchema.safeParse({
     name: "Test",
     mobile: "5123456789",
     service: "Website",
     consent: true,
+    captcha_answer: "8",
   });
   assert.equal(badMobile.success, false);
 
@@ -83,6 +98,7 @@ test("publicInquirySchema rejects missing consent, invalid mobile, invalid email
     email: "not-an-email",
     service: "Website",
     consent: true,
+    captcha_answer: "8",
   });
   assert.equal(badEmail.success, false);
 
@@ -92,8 +108,15 @@ test("publicInquirySchema rejects missing consent, invalid mobile, invalid email
     service: "Website",
     message: "x".repeat(2001),
     consent: true,
+    captcha_answer: "8",
   });
   assert.equal(longMessage.success, false);
+});
+
+test("parseCaptchaAnswer parses valid integers and rejects non-numeric strings", () => {
+  assert.equal(parseCaptchaAnswer(" 17 "), 17);
+  assert.equal(parseCaptchaAnswer("17abc"), null);
+  assert.equal(parseCaptchaAnswer(""), null);
 });
 
 test("findDuplicateContact matches active contact by email or normalized mobile and skips archived", () => {

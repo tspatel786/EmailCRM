@@ -43,7 +43,7 @@ What it adds:
 
 ## Edge Function Deployment (`submit-inquiry`)
 
-`submit-inquiry` validates input with the shared Zod schema (`packages/shared/src/inquiry.ts`), checks the honeypot field, optionally verifies Cloudflare Turnstile, enforces rate limits, deduplicates by normalized email or 10-digit Indian mobile, creates/links the company and contact (`lead_source = "Public Form"`), records an activity timeline entry, creates a `"Call new inquiry"` follow-up task due within 1 day, and logs an audit entry.
+- `submit-inquiry` generates a server-signed, single-use math CAPTCHA (`GET /functions/v1/submit-inquiry`), validates input with the shared Zod schema (`packages/shared/src/inquiry.ts`), checks the honeypot field, verifies the CAPTCHA answer and single-use nonce (plus optional Cloudflare Turnstile), enforces per-IP and per-mobile rate limits, deduplicates by normalized email or 10-digit Indian mobile, creates/links the company and contact (`lead_source = "Public Form"`), records an activity timeline entry, creates a `"Call new inquiry"` follow-up task due within 1 day, and logs an audit entry.
 
 Deploy via Supabase CLI:
 
