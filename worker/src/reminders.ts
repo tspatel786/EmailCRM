@@ -10,15 +10,17 @@ export async function processDueReminders(): Promise<number> {
   // is trusted) but validate `organization_id` is non-null on each task before acting.
   const { data: tasks, error } = await admin
     .from("tasks")
-    .select("id, organization_id, title, assigned_to, due_at, reminder_email, contact_id, status")
+    .select("id, organization_id, title, assigned_to, due_at, last_notified_at, reminder_email, contact_id, status")
     .in("status", ["pending", "in_progress"])
     .lte("due_at", now)
-    .not("organization_id", "is", null) // C6: must have valid org
-    .or("last_notified_at.is.null,last_notified_at.lt.due_at");
+    .not("organization_id", "is", null); // C6: must have valid org
 
   if (error) throw error;
   let count = 0;
   for (const task of tasks ?? []) {
+    if (task.last_notified_at && new Date(task.last_notified_at).getTime() >= new Date(task.due_at).getTime()) {
+      continue;
+    }
     if (!task.assigned_to) continue;
     if (!task.organization_id) continue; // C6: extra guard
     const { data: existing } = await admin

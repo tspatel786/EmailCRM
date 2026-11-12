@@ -35,14 +35,23 @@ console.info(
   }),
 );
 
+async function runStep(name: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({ msg: "crm-worker-step-error", step: name, error: message.slice(0, 500) }));
+  }
+}
+
 async function loop(): Promise<void> {
   while (running) {
     try {
       state.lastLoopAt = new Date().toISOString();
-      await reclaimExpiredLeases();
-      await activateScheduledCampaigns();
-      await processDueReminders();
-      await processDemoEmails();
+      await runStep("reclaimExpiredLeases", reclaimExpiredLeases);
+      await runStep("activateScheduledCampaigns", activateScheduledCampaigns);
+      await runStep("processDueReminders", processDueReminders);
+      await runStep("processDemoEmails", processDemoEmails);
       const jobs = await claimJobs();
       state.jobsClaimed += jobs.length;
       for (const job of jobs) {
