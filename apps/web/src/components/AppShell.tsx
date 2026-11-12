@@ -34,6 +34,7 @@ const nav = [
   { to: "/app/import", label: "Import Excel", icon: FileSpreadsheet },
   { to: "/app/calls", label: "Calls", icon: Phone },
   { to: "/app/follow-ups", label: "Follow-ups", icon: ListTodo },
+  { to: "/app/mails", label: "Mails", icon: Mail },
   { to: "/app/campaigns", label: "Campaigns", icon: Mail },
   { to: "/app/templates", label: "Email Templates", icon: FileText },
   { to: "/app/deals", label: "Deals", icon: Kanban },

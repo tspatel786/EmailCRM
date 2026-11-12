@@ -13,6 +13,7 @@ import { ImportExcelPage } from "./pages/ImportExcel";
 import { CallsPage } from "./pages/Calls";
 import { FollowUpsPage } from "./pages/FollowUps";
 import { CampaignDetailPage, CampaignsPage } from "./pages/Campaigns";
+import { MailsPage } from "./pages/Mails";
 import { TemplatesPage } from "./pages/Templates";
 import { DealsPage } from "./pages/Deals";
 import { QuotationsPage } from "./pages/Quotations";
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="import" element={<ImportExcelPage />} />
         <Route path="calls" element={<CallsPage />} />
         <Route path="follow-ups" element={<FollowUpsPage />} />
+        <Route path="mails" element={<MailsPage />} />
         <Route path="campaigns" element={<CampaignsPage />} />
         <Route path="campaigns/:id" element={<CampaignDetailPage />} />
         <Route path="templates" element={<TemplatesPage />} />
