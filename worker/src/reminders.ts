@@ -1,4 +1,4 @@
-﻿import { admin } from "./db.js";
+import { admin } from "./db.js";
 import { env } from "./env.js";
 import { sendMail } from "./smtp.js";
 
