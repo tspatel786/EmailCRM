@@ -32,11 +32,47 @@ function getTransport(): Transporter {
   return transporter;
 }
 
+async function sendViaResend(payload: SendPayload): Promise<SendResult> {
+  const fromEmail = env.resendFromEmail || env.smtpFromEmail;
+  const from = env.smtpFromName
+    ? `${env.smtpFromName} <${fromEmail}>`
+    : fromEmail;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [payload.to],
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+      headers: payload.headers,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    message?: string;
+    name?: string;
+  };
+  if (!response.ok) {
+    const err = new Error(`Resend HTTP ${response.status}: ${body.message || body.name || response.statusText}`);
+    return { ok: false, error: err };
+  }
+  return { ok: true, messageId: body.id || `resend-${Date.now()}`, mock: false };
+}
+
 export async function sendMail(payload: SendPayload): Promise<SendResult> {
   if (env.smtpMock) {
     return { ok: true, messageId: `mock-${crypto.randomUUID()}`, mock: true };
   }
   try {
+    if (env.resendApiKey) {
+      return await sendViaResend(payload);
+    }
     const info = await getTransport().sendMail({
       from: `"${env.smtpFromName}" <${env.smtpFromEmail}>`,
       to: payload.to,

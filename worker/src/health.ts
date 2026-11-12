@@ -29,6 +29,7 @@ export function startHealthServer(state: HealthState): ReturnType<typeof createS
         ok: true,
         workerId: env.workerId,
         smtpMock: env.smtpMock,
+        provider: env.smtpMock ? "mock" : env.resendApiKey ? "resend" : "smtp",
         heartbeat: heartbeatAt,
         ...state,
       };

@@ -47,3 +47,7 @@ services:
         sync: false
       - key: SMTP_MOCK
         value: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: sales@updates.smpatelithub.in

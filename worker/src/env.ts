@@ -21,6 +21,8 @@ export const env = {
   smtpFromName: process.env.SMTP_FROM_NAME ?? "IT Services",
   smtpFromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   smtpMock: (process.env.SMTP_MOCK ?? "true") === "true",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   workerId: process.env.WORKER_ID ?? `worker-${process.pid}`,
   pollMs: Number(process.env.WORKER_POLL_MS ?? "2000"),
   batchSize: Number(process.env.WORKER_BATCH_SIZE ?? "10"),
@@ -34,8 +36,11 @@ export function assertWorkerSecrets(): void {
   if (env.nodeEnv === "production" && env.smtpMock) {
     throw new Error("SMTP_MOCK must be false in production");
   }
-  if (!env.smtpMock && (!env.smtpUser || !env.smtpPass)) {
-    throw new Error("SMTP_USER and SMTP_PASS are required when SMTP_MOCK=false");
+  if (!env.smtpMock && !env.resendApiKey && (!env.smtpUser || !env.smtpPass)) {
+    throw new Error("RESEND_API_KEY or SMTP_USER/SMTP_PASS are required when SMTP_MOCK=false");
+  }
+  if (!env.smtpMock && env.resendApiKey && !env.resendFromEmail) {
+    throw new Error("RESEND_FROM_EMAIL or SMTP_FROM_EMAIL is required when using RESEND_API_KEY");
   }
   if (env.serviceRoleKey.startsWith("replace-with")) {
     throw new Error("Configure SUPABASE_SERVICE_ROLE_KEY before starting the worker");
