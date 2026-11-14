@@ -49,6 +49,7 @@ Deno.serve(async (req: Request) => {
       organization_id: organizationId,
       template_id: templateId || null,
       requested_by: userData.user.id,
+      owner_user_id: userData.user.id,
       recipient_email: recipientEmail,
       subject,
       body_text: bodyText,
