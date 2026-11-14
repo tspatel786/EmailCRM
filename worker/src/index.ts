@@ -7,6 +7,17 @@ import { processOutboundMessages } from "./outbound-messages.js";
 
 assertWorkerSecrets();
 
+// Make the active email transport obvious in deploy logs. Hosts like Render's free tier
+// block outbound SMTP ports, so an SMTP fallback there fails with "Connection timeout".
+const emailTransport = env.smtpMock ? "mock" : env.resendApiKey ? "resend" : "smtp";
+console.log(JSON.stringify({ msg: "worker-email-transport", transport: emailTransport }));
+if (emailTransport === "smtp" && env.nodeEnv === "production") {
+  console.warn(JSON.stringify({
+    msg: "worker-email-transport-warning",
+    detail: "RESEND_API_KEY is not set; falling back to SMTP. If the host blocks SMTP ports, all sends will time out.",
+  }));
+}
+
 const state: HealthState = {
   startedAt: new Date().toISOString(),
   lastLoopAt: null,
