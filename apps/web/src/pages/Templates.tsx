@@ -154,6 +154,7 @@ export function TemplatesPage() {
         organization_id: org.organization_id,
         template_id: demoTarget.id && !demoTarget.id.startsWith("preview") ? demoTarget.id : null,
         requested_by: user?.id ?? null,
+        owner_user_id: user?.id ?? null,
         recipient_email: targetEmail,
         subject: personalizedSubject,
         body_text: personalizedText || personalizedHtml.replace(/<[^>]+>/g, " ").trim(),

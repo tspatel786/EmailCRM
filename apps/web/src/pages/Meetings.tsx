@@ -78,7 +78,7 @@ export function MeetingsPage() {
       } else {
         const { data, error } = await supabase
           .from("meetings")
-          .insert({ ...payload, organization_id: org!.organization_id, created_by: user!.id, calendar_sync_status: "not_configured" })
+          .insert({ ...payload, organization_id: org!.organization_id, created_by: user!.id, owner_user_id: user!.id, calendar_sync_status: "not_configured" })
           .select()
           .single();
         if (error) throw error;

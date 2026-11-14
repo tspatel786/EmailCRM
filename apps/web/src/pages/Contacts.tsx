@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { canWrite, contactFormSchema } from "@crm/shared";
+import { canAdmin, canWrite, contactFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -16,9 +16,10 @@ type Form = z.infer<typeof contactFormSchema>;
 const PAGE = 25;
 
 export function ContactsPage() {
-  const { org } = useSession();
+  const { org, user } = useSession();
   const qc = useQueryClient();
   const writable = canWrite(org?.role);
+  const isAdmin = canAdmin(org?.role);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -115,6 +116,7 @@ export function ContactsPage() {
         ...values,
         primary_email: values.primary_email || null,
         organization_id: org!.organization_id,
+        owner_user_id: values.assigned_to || user!.id,
         email_opt_in: values.consent_status === "granted",
       });
       if (error) throw error;
@@ -303,9 +305,11 @@ export function ContactsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Assigned to">
-            <MemberSelect value={form.watch("assigned_to")} onChange={(v) => form.setValue("assigned_to", v)} />
-          </Field>
+          {isAdmin && (
+            <Field label="Assigned to">
+              <MemberSelect value={form.watch("assigned_to")} onChange={(v) => form.setValue("assigned_to", v)} />
+            </Field>
+          )}
           <Field label="Notes">
             <Textarea {...form.register("notes")} />
           </Field>

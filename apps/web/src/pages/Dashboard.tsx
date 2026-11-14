@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { startOfMonth } from "date-fns";
+import { canAdmin } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadMultiSheetWorkbook } from "../lib/export";
@@ -44,13 +45,16 @@ type Counts = {
 };
 
 export function DashboardPage() {
-  const { org } = useSession();
+  const { org, user } = useSession();
   const orgId = org?.organization_id;
+  const isAdmin = canAdmin(org?.role);
   const [from, setFrom] = useState(startOfMonth(new Date()).toISOString().slice(0, 10));
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [myDataOnly, setMyDataOnly] = useState(false);
+  const scopeToMe = isAdmin && myDataOnly;
 
   const query = useQuery({
-    queryKey: ["dashboard", orgId, from, to],
+    queryKey: ["dashboard", orgId, from, to, scopeToMe],
     enabled: Boolean(orgId),
     queryFn: async (): Promise<{ counts: Counts; sources: { name: string; n: number }[]; statuses: { name: string; n: number }[]; people: { name: string; calls: number }[] }> => {
       const start = new Date(`${from}T00:00:00`).toISOString();
@@ -58,42 +62,49 @@ export function DashboardPage() {
       const today0 = new Date();
       today0.setHours(0, 0, 0, 0);
       const month0 = startOfMonth(new Date()).toISOString();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scoped = (q: any) => (scopeToMe ? q.eq("owner_user_id", user!.id) : q);
 
       const [leads, customers, newMonth, contacts] = await Promise.all([
-        supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("lifecycle", "lead").is("archived_at", null),
-        supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("lifecycle", "customer").is("archived_at", null),
-        supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("created_at", month0).is("archived_at", null),
-        supabase.from("contacts").select("lead_source, lead_status").eq("organization_id", orgId!).is("archived_at", null),
+        scoped(supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("lifecycle", "lead").is("archived_at", null)),
+        scoped(supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("lifecycle", "customer").is("archived_at", null)),
+        scoped(supabase.from("contacts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("created_at", month0).is("archived_at", null)),
+        scoped(supabase.from("contacts").select("lead_source, lead_status").eq("organization_id", orgId!).is("archived_at", null)),
       ]);
 
       const [callsToday, callsMonth, followToday, followOverdue] = await Promise.all([
-        supabase.from("calls").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("called_at", today0.toISOString()),
-        supabase.from("calls").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("called_at", month0),
-        supabase
-          .from("tasks")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId!)
-          .in("status", ["pending", "in_progress"])
-          .gte("due_at", today0.toISOString())
-          .lt("due_at", new Date(today0.getTime() + 86400000).toISOString()),
-        supabase
-          .from("tasks")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId!)
-          .in("status", ["pending", "in_progress"])
-          .lt("due_at", today0.toISOString()),
+        scoped(supabase.from("calls").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("called_at", today0.toISOString())),
+        scoped(supabase.from("calls").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).gte("called_at", month0)),
+        scoped(
+          supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId!)
+            .in("status", ["pending", "in_progress"])
+            .gte("due_at", today0.toISOString())
+            .lt("due_at", new Date(today0.getTime() + 86400000).toISOString()),
+        ),
+        scoped(
+          supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId!)
+            .in("status", ["pending", "in_progress"])
+            .lt("due_at", today0.toISOString()),
+        ),
       ]);
 
       const [queued, sent, failed, meetings, openQuotes, deals] = await Promise.all([
+        // email_jobs are campaign-level (no owner_user_id column), so they stay org-wide.
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "queued"),
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "sent"),
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).in("status", ["failed", "dead_letter", "bounced"]),
-        supabase.from("meetings").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "scheduled").gte("starts_at", new Date().toISOString()),
-        supabase.from("quotations").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).in("status", ["draft", "pending_approval", "approved", "sent"]),
-        supabase.from("deals").select("stage, estimated_value, owner_id").eq("organization_id", orgId!),
+        scoped(supabase.from("meetings").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "scheduled").gte("starts_at", new Date().toISOString())),
+        scoped(supabase.from("quotations").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).in("status", ["draft", "pending_approval", "approved", "sent"])),
+        scoped(supabase.from("deals").select("stage, estimated_value, owner_id").eq("organization_id", orgId!)),
       ]);
 
-      const dealRows = deals.data ?? [];
+      const dealRows: { stage: string; estimated_value: number; owner_id: string | null }[] = deals.data ?? [];
       const pipeline = dealRows.filter((d) => !["won", "lost"].includes(d.stage)).reduce((s, d) => s + Number(d.estimated_value || 0), 0);
       const won = dealRows.filter((d) => d.stage === "won").length;
       const lost = dealRows.filter((d) => d.stage === "lost").length;
@@ -174,6 +185,12 @@ export function DashboardPage() {
           <>
             <input type="date" className="rounded-lg border px-2 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
             <input type="date" className="rounded-lg border px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
+            {isAdmin ? (
+              <label className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm">
+                <input type="checkbox" checked={myDataOnly} onChange={(e) => setMyDataOnly(e.target.checked)} />
+                My data only
+              </label>
+            ) : null}
             <Button
               variant="secondary"
               onClick={() => {

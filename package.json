@@ -18,6 +18,7 @@
     "test": "npm run typecheck",
     "test:inquiry": "npx tsc -p packages/shared/tsconfig.json --noEmit false --rootDir packages/shared/src --outDir packages/shared/dist && node --test packages/shared/tests/inquiry.test.mjs",
     "test:rls:anon": "node scripts/test-anon-rls.mjs",
+    "test:rls:isolation": "node scripts/test-rls-isolation.mjs",
     "typecheck": "npm run typecheck -w @crm/shared && npm run typecheck -w @crm/web && npm run typecheck -w @crm/worker",
     "seed": "npm run seed -w @crm/worker",
     "check:secrets": "node scripts/check-frontend-secrets.mjs"

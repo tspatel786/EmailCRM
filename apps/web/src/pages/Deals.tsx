@@ -50,6 +50,7 @@ export function DealsPage() {
         contact_id: values.contact_id || null,
         company_id: values.company_id || null,
         owner_id: values.owner_id || user!.id,
+        owner_user_id: values.owner_id || user!.id,
         expected_close_date: values.expected_close_date ? values.expected_close_date : null,
         organization_id: org!.organization_id,
         created_by: user!.id,
@@ -85,6 +86,7 @@ export function DealsPage() {
           name: deal.title,
           status: "planning",
           created_by: user!.id,
+          owner_user_id: deal.owner_id || user!.id,
         })
         .select()
         .single();

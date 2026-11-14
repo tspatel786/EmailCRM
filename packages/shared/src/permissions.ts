@@ -25,7 +25,3 @@ export function canInviteRole(actor: AppRole, target: AppRole): boolean {
   if (actor === "admin") return target !== "owner";
   return false;
 }
-
-export function canViewAudit(role: AppRole | null | undefined): boolean {
-  return role === "owner" || role === "admin" || role === "sales_manager";
-}

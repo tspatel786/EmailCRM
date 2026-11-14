@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { canViewAudit } from "@crm/shared";
+import { canAdmin } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
@@ -7,7 +7,7 @@ import { Card, Empty, PageHeader } from "../components/ui";
 
 export function AuditLogsPage() {
   const { org } = useSession();
-  const allowed = canViewAudit(org?.role);
+  const allowed = canAdmin(org?.role);
   const logs = useQuery({
     queryKey: ["audit", org?.organization_id],
     enabled: Boolean(org) && allowed,

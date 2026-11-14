@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { canWrite, taskFormSchema } from "@crm/shared";
+import { canAdmin, canWrite, taskFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -21,6 +21,7 @@ function derivedStatus(row: { status: string; due_at: string | null }): string {
 export function FollowUpsPage() {
   const { org, user } = useSession();
   const writable = canWrite(org?.role);
+  const isAdmin = canAdmin(org?.role);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"today" | "upcoming" | "overdue" | "all" | "calendar">("today");
@@ -80,6 +81,7 @@ export function FollowUpsPage() {
         recurrence_rule: values.recurrence_rule === "none" ? null : values.recurrence_rule,
         organization_id: org.organization_id,
         created_by: user.id,
+        owner_user_id: values.assigned_to || user.id,
         due_at: dueIso,
       });
       if (error) throw error;
@@ -116,6 +118,7 @@ export function FollowUpsPage() {
           kind: current.kind,
           assigned_to: current.assigned_to,
           created_by: user.id,
+          owner_user_id: current.assigned_to || user.id,
           due_at: next.toISOString(),
           priority: current.priority,
           status: "pending",
@@ -277,9 +280,11 @@ export function FollowUpsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Assignee" error={form.formState.errors.assigned_to?.message}>
-            <MemberSelect value={form.watch("assigned_to")} onChange={(v) => form.setValue("assigned_to", v)} />
-          </Field>
+          {isAdmin && (
+            <Field label="Assignee" error={form.formState.errors.assigned_to?.message}>
+              <MemberSelect value={form.watch("assigned_to")} onChange={(v) => form.setValue("assigned_to", v)} />
+            </Field>
+          )}
           <Field label="Due" error={form.formState.errors.due_at?.message}>
             <Input type="datetime-local" {...form.register("due_at")} />
           </Field>

@@ -117,6 +117,7 @@ export function ProjectsPage() {
         ...values,
         organization_id: org!.organization_id,
         created_by: user!.id,
+        owner_user_id: user!.id,
         deadline: values.deadline && values.deadline.trim() ? values.deadline.trim() : null,
       });
       if (error) throw error;

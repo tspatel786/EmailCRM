@@ -14,6 +14,37 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
 });
 
+async function verifySignature(secret: string, payload: string, headers: Headers): Promise<boolean> {
+  const svixId = headers.get("svix-id");
+  const svixTimestamp = headers.get("svix-timestamp");
+  const svixSignature = headers.get("svix-signature");
+  if (!svixId || !svixTimestamp || !svixSignature) return false;
+
+  const secretBytes = secret.startsWith("whsec_")
+    ? Uint8Array.from(atob(secret.slice(6)), (c) => c.charCodeAt(0))
+    : new TextEncoder().encode(secret);
+
+  const signedContent = `${svixId}.${svixTimestamp}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    secretBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sigBytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedContent));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(sigBytes)));
+
+  return svixSignature
+    .split(" ")
+    .map((part) => part.split(",")[1])
+    .some((sig) => sig === expected);
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 type ResendEvent = {
   type: string;
   created_at: string;
@@ -43,8 +74,24 @@ serve(async (req: Request) => {
     });
   }
 
-  // Optional Svix/Resend signature verification if secret configured
   const rawBody = await req.text();
+
+  // Signature verification is mandatory -- fail closed if the secret isn't configured
+  // or the signature doesn't match, rather than silently accepting unsigned requests.
+  if (!webhookSecret) {
+    return new Response(JSON.stringify({ error: "webhook_not_configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const signatureValid = await verifySignature(webhookSecret, rawBody, req.headers);
+  if (!signatureValid) {
+    return new Response(JSON.stringify({ error: "invalid_signature" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let event: ResendEvent;
   try {
     event = JSON.parse(rawBody);
@@ -82,56 +129,79 @@ serve(async (req: Request) => {
         ? (firstTo.match(/<([^>]+)>/)?.[1] || firstTo).trim()
         : firstTo?.email || "";
 
-    // Match contact & org by fromEmail
-    const { data: contacts } = await admin
-      .from("contacts")
-      .select("id, organization_id, full_name")
+    // Match contact & org by fromEmail. Try the multi-email contact_emails table first
+    // (contacts.email does not exist -- primary_email does), then fall back to primary_email.
+    const { data: emailMatches } = await admin
+      .from("contact_emails")
+      .select("contact_id, organization_id")
       .ilike("email", fromEmail)
       .limit(1);
 
-    const contact = contacts?.[0];
-    let orgId = contact?.organization_id;
+    let contactId = emailMatches?.[0]?.contact_id ?? null;
+    let orgId = emailMatches?.[0]?.organization_id ?? null;
 
-    // Fallback: match first active organization if contact not yet enrolled
-    if (!orgId) {
-      const { data: orgs } = await admin
-        .from("organizations")
-        .select("id")
+    if (!contactId) {
+      const { data: primaryMatches } = await admin
+        .from("contacts")
+        .select("id, organization_id")
+        .ilike("primary_email", fromEmail)
         .limit(1);
-      orgId = orgs?.[0]?.id;
+      contactId = primaryMatches?.[0]?.id ?? null;
+      orgId = primaryMatches?.[0]?.organization_id ?? null;
     }
 
-    if (orgId) {
-      await admin.from("messages").insert({
-        organization_id: orgId,
-        contact_id: contact?.id ?? null,
-        direction: "inbound",
-        folder: "inbox",
-        status: "received",
-        from_name: fromName || contact?.full_name || fromEmail,
-        from_email: fromEmail,
-        to_email: toEmail,
-        subject: data.subject || "(No Subject)",
-        body_text: data.text || "",
-        body_html: data.html || (data.text ? `<p>${data.text}</p>` : ""),
-        provider: "resend",
-        provider_message_id: emailId ?? null,
-        is_read: false,
-        headers: data.headers ?? {},
-        raw_payload: event,
-      });
+    let contact: { id: string; full_name: string; owner_user_id: string | null } | null = null;
+    if (contactId && orgId) {
+      const { data: contactRow } = await admin
+        .from("contacts")
+        .select("id, full_name, owner_user_id")
+        .eq("id", contactId)
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      contact = contactRow ?? null;
+    }
 
-      // Record activity on contact timeline if known contact
-      if (contact?.id) {
-        await admin.from("activities").insert({
-          organization_id: orgId,
-          contact_id: contact.id,
-          type: "email",
-          title: `Email reply received: ${data.subject || "(No Subject)"}`,
-          description: (data.text || "").slice(0, 500),
-          occurred_at: event.created_at || new Date().toISOString(),
-        });
-      }
+    // No org can be safely resolved -- do NOT guess (that previously misrouted inbound
+    // mail into whichever org happened to be first in the table). Drop and log instead.
+    if (!orgId) {
+      console.warn(JSON.stringify({ msg: "resend-webhook-unrouted-inbound", fromEmail, toEmail }));
+      return new Response(JSON.stringify({ ok: true, action: "unrouted_dropped" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    await admin.from("messages").insert({
+      organization_id: orgId,
+      contact_id: contact?.id ?? null,
+      owner_user_id: contact?.owner_user_id ?? null,
+      direction: "inbound",
+      folder: "inbox",
+      status: "received",
+      from_name: fromName || contact?.full_name || fromEmail,
+      from_email: fromEmail,
+      to_email: toEmail,
+      subject: data.subject || "(No Subject)",
+      body_text: data.text || "",
+      body_html: data.html || (data.text ? `<p>${escapeHtml(data.text).replace(/\n/g, "<br/>")}</p>` : ""),
+      provider: "resend",
+      provider_message_id: emailId ?? null,
+      is_read: false,
+      headers: data.headers ?? {},
+      raw_payload: event,
+    });
+
+    // Record activity on contact timeline if known contact
+    if (contact?.id) {
+      await admin.from("activities").insert({
+        organization_id: orgId,
+        contact_id: contact.id,
+        actor_user_id: contact.owner_user_id,
+        activity_type: "email",
+        summary: `Email reply received: ${data.subject || "(No Subject)"}`,
+        outcome: (data.text || "").slice(0, 500),
+        occurred_at: event.created_at || new Date().toISOString(),
+      });
     }
 
     return new Response(JSON.stringify({ ok: true, action: "inbound_recorded" }), {

@@ -26,6 +26,10 @@ import { Button, Input, Modal, Select, Textarea } from "../components/ui";
 
 type Folder = "inbox" | "sent" | "queued" | "failed";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 type Message = {
   id: string;
   organization_id: string;
@@ -45,11 +49,11 @@ type Message = {
   is_read: boolean;
   is_starred: boolean;
   created_at: string;
-  contacts?: { id: string; full_name: string; email: string | null; company_id: string | null } | null;
+  contacts?: { id: string; full_name: string; primary_email: string | null; company_id: string | null } | null;
 };
 
 export function MailsPage() {
-  const { org } = useSession();
+  const { org, user } = useSession();
   const qc = useQueryClient();
   const orgId = org?.organization_id;
 
@@ -75,9 +79,9 @@ export function MailsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("contacts")
-        .select("id, full_name, email")
+        .select("id, full_name, primary_email")
         .eq("organization_id", orgId!)
-        .not("email", "is", null)
+        .not("primary_email", "is", null)
         .order("full_name");
       return data ?? [];
     },
@@ -106,7 +110,7 @@ export function MailsPage() {
       const { data, error } = await supabase
         .from("messages")
         .select(
-          `id, organization_id, contact_id, direction, folder, status, from_name, from_email, to_name, to_email, subject, body_text, body_html, provider, provider_message_id, is_read, is_starred, created_at, contacts(id, full_name, email, company_id)`
+          `id, organization_id, contact_id, direction, folder, status, from_name, from_email, to_name, to_email, subject, body_text, body_html, provider, provider_message_id, is_read, is_starred, created_at, contacts(id, full_name, primary_email, company_id)`
         )
         .eq("organization_id", orgId!)
         .eq("folder", activeFolder)
@@ -187,22 +191,23 @@ export function MailsPage() {
     setComposeSuccess("");
 
     try {
-      // 1. Insert into messages table as sent
+      // 1. Insert into messages table as queued for worker dispatch
       const { data: newMsg, error: insertError } = await supabase
         .from("messages")
         .insert({
           organization_id: orgId,
           contact_id: composeContactId || null,
+          owner_user_id: user!.id,
           direction: "outbound",
-          folder: "sent",
-          status: "sent",
+          folder: "queued",
+          status: "queued",
           from_name: org?.organizations?.name || "S.M.PATEL IT HUB",
           from_email: "sales@updates.smpatelithub.in",
           to_email: composeTo.trim(),
           to_name: composeTo.trim(),
           subject: composeSubject.trim() || "(No Subject)",
           body_text: composeBody,
-          body_html: `<div style="font-family: sans-serif; line-height: 1.5;">${composeBody.replace(/\n/g, "<br/>")}</div>`,
+          body_html: `<div style="font-family: sans-serif; line-height: 1.5;">${escapeHtml(composeBody).replace(/\n/g, "<br/>")}</div>`,
           provider: "resend",
           is_read: true,
         })
@@ -216,14 +221,15 @@ export function MailsPage() {
         await supabase.from("activities").insert({
           organization_id: orgId,
           contact_id: composeContactId,
-          type: "email",
-          title: `Sent Email: ${composeSubject.trim() || "(No Subject)"}`,
-          description: composeBody.slice(0, 500),
+          actor_user_id: user!.id,
+          activity_type: "email",
+          summary: `Sent Email: ${composeSubject.trim() || "(No Subject)"}`,
+          outcome: composeBody.slice(0, 500),
           occurred_at: new Date().toISOString(),
         });
       }
 
-      setComposeSuccess("Email dispatched successfully!");
+      setComposeSuccess("Email queued! Dispatching via Resend...");
       qc.invalidateQueries({ queryKey: ["messages", orgId] });
 
       setTimeout(() => {
@@ -537,9 +543,14 @@ export function MailsPage() {
               {/* Message Content Body */}
               <div className="flex-1 p-6 overflow-y-auto">
                 {selectedMessage.body_html ? (
-                  <div
-                    className="prose prose-sm max-w-none text-slate-800"
-                    dangerouslySetInnerHTML={{ __html: selectedMessage.body_html }}
+                  // Inbound HTML comes from arbitrary external senders: render it in a fully
+                  // sandboxed iframe (no scripts, no same-origin access to the CRM session).
+                  <iframe
+                    title="Message body"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
+                    className="h-full min-h-[400px] w-full rounded border-0 bg-white"
+                    srcDoc={selectedMessage.body_html}
                   />
                 ) : (
                   <pre className="whitespace-pre-wrap font-sans text-sm text-slate-800">
@@ -604,13 +615,13 @@ export function MailsPage() {
                     const cId = e.target.value;
                     setComposeContactId(cId);
                     const found = contactsQuery.data?.find((c) => c.id === cId);
-                    if (found?.email) setComposeTo(found.email);
+                    if (found?.primary_email) setComposeTo(found.primary_email);
                   }}
                 >
                   <option value="">-- Choose contact --</option>
                   {contactsQuery.data?.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.full_name} ({c.email})
+                      {c.full_name} ({c.primary_email})
                     </option>
                   ))}
                 </Select>

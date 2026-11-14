@@ -1,8 +1,9 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useSession } from "./lib/session";
 import { AppShell } from "./components/AppShell";
-import { Spinner } from "./components/ui";
+import { Button, Spinner } from "./components/ui";
+import { supabase } from "./lib/supabase";
 import { LoginPage } from "./pages/Login";
 import { ForgotPasswordPage, ResetPasswordPage } from "./pages/ForgotPassword";
 import { DashboardPage } from "./pages/Dashboard";
@@ -26,10 +27,51 @@ import { AuditLogsPage } from "./pages/AuditLogs";
 import { UnsubscribePage } from "./pages/Unsubscribe";
 import { PublicInquiryPage } from "./pages/PublicInquiry";
 
+function PendingInvites() {
+  const { invites, refresh, setOrgId } = useSession();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  async function accept(organizationId: string) {
+    setBusy(organizationId);
+    setError("");
+    const { error: rpcError } = await supabase.rpc("accept_invite", { p_organization_id: organizationId });
+    if (rpcError) {
+      setError(rpcError.message);
+      setBusy(null);
+      return;
+    }
+    setOrgId(organizationId);
+    await refresh();
+    setBusy(null);
+  }
+
+  return (
+    <div className="mx-auto max-w-md p-8 text-center text-sm text-slate-700">
+      <h1 className="mb-2 text-lg font-semibold text-slate-900">You have a pending invitation</h1>
+      <p className="mb-4">Accept it to join the organization.</p>
+      <ul className="space-y-2">
+        {invites.map((inv) => (
+          <li key={inv.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+            <span>
+              Role: <strong>{inv.role}</strong>
+            </span>
+            <Button disabled={busy !== null} onClick={() => void accept(inv.organization_id)}>
+              {busy === inv.organization_id ? "Accepting..." : "Accept invite"}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="mt-3 text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
 function Protected({ children }: { children: ReactElement }) {
-  const { session, loading, memberships } = useSession();
+  const { session, loading, memberships, invites } = useSession();
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
   if (!session) return <Navigate to="/login" replace />;
+  if (!memberships.length && invites.length) return <PendingInvites />;
   if (!memberships.length) {
     return (
       <div className="p-8 text-center text-sm text-slate-600">

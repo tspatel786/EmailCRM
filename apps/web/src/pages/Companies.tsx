@@ -12,7 +12,7 @@ import { z } from "zod";
 type Form = z.infer<typeof companyFormSchema>;
 
 export function CompaniesPage() {
-  const { org } = useSession();
+  const { org, user } = useSession();
   const qc = useQueryClient();
   const writable = canWrite(org?.role);
   const [open, setOpen] = useState(false);
@@ -45,6 +45,7 @@ export function CompaniesPage() {
       const { error } = await supabase.from("companies").insert({
         ...values,
         organization_id: org!.organization_id,
+        owner_user_id: user!.id,
       });
       if (error) throw error;
     },

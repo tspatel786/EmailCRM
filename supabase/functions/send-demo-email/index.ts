@@ -33,6 +33,16 @@ Deno.serve(async (req: Request) => {
     return json({ error: "missing_required_fields" }, 400);
   }
 
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("status")
+    .eq("organization_id", organizationId)
+    .eq("user_id", userData.user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!membership) return json({ error: "forbidden" }, 403);
+
   const { data, error } = await admin
     .from("demo_email_requests")
     .insert({

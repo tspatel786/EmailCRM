@@ -18,7 +18,7 @@ export const env = {
   smtpSecure: (process.env.SMTP_SECURE ?? "true") === "true",
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
-  smtpFromName: process.env.SMTP_FROM_NAME ?? "IT Services",
+  smtpFromName: process.env.SMTP_FROM_NAME ?? "S.M.PATEL IT HUB",
   smtpFromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "",
   smtpMock: (process.env.SMTP_MOCK ?? "true") === "true",
   resendApiKey: process.env.RESEND_API_KEY ?? "",

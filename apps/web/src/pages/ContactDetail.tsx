@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { canWrite } from "@crm/shared";
+import { canAdmin, canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime, telHref } from "../lib/format";
 import { Badge, Button, Card, Confirm, Empty, Field, Input, PageHeader, Select, Spinner, Textarea } from "../components/ui";
+import { MemberSelect } from "./Companies";
 
 const tabs = [
   "Overview",
@@ -27,6 +28,7 @@ export function ContactDetailPage() {
   const navigate = useNavigate();
   const { org, user } = useSession();
   const writable = canWrite(org?.role);
+  const isAdmin = canAdmin(org?.role);
   const qc = useQueryClient();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
   const [note, setNote] = useState("");
@@ -174,6 +176,17 @@ export function ContactDetailPage() {
     },
   });
 
+  const reassign = useMutation({
+    mutationFn: async (ownerUserId: string | null) => {
+      const { error } = await supabase.from("contacts").update({ owner_user_id: ownerUserId }).eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["contact", id] });
+      await qc.refetchQueries({ queryKey: ["contact", id] });
+    },
+  });
+
   const uploadDoc = useMutation({
     mutationFn: async (file: File) => {
       if (file.size > 20 * 1024 * 1024) throw new Error("File exceeds 20 MB");
@@ -189,6 +202,7 @@ export function ContactDetailPage() {
         mime_type: file.type || "application/octet-stream",
         byte_size: file.size,
         uploaded_by: user!.id,
+        owner_user_id: user!.id,
       });
       if (error) throw error;
     },
@@ -367,6 +381,11 @@ export function ContactDetailPage() {
               <Textarea value={draft.notes} disabled={!writable} onChange={(e) => setDetailDraft((d) => ({ ...d, notes: e.target.value }))} />
             </Field>
           </div>
+          {isAdmin ? (
+            <Field label="Owner (reassign)">
+              <MemberSelect value={c.owner_user_id} onChange={(v) => reassign.mutate(v)} />
+            </Field>
+          ) : null}
           {writable ? (
             <Button onClick={() => saveDetails.mutate()} disabled={saveDetails.isPending}>
               {saveDetails.isPending ? "Saving details..." : "Save details"}

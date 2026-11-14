@@ -122,6 +122,7 @@ export function CallsPage() {
           ...values,
           organization_id: org.organization_id,
           employee_id: user.id,
+          owner_user_id: user.id,
           called_at: calledAtIso,
           follow_up_at: followUpIso,
         })
@@ -148,6 +149,7 @@ export function CallsPage() {
           kind: "follow_up",
           assigned_to: user.id,
           created_by: user.id,
+          owner_user_id: user.id,
           due_at: followUpIso,
           priority: values.priority,
           related_call_id: data.id,

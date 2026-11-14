@@ -11,11 +11,14 @@ export type Membership = {
   organizations: { id: string; name: string; slug: string; timezone: string; daily_email_limit: number };
 };
 
+export type PendingInvite = { id: string; organization_id: string; role: AppRole };
+
 type Ctx = {
   session: Session | null;
   user: User | null;
   loading: boolean;
   memberships: Membership[];
+  invites: PendingInvite[];
   org: Membership | null;
   setOrgId: (id: string) => void;
   refresh: () => Promise<void>;
@@ -27,6 +30,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [orgId, setOrgId] = useState<string | null>(localStorage.getItem("crm.org"));
 
   async function loadMemberships(userId: string) {
@@ -42,6 +46,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return { ...raw, organizations } as Membership;
     });
     setMemberships(rows.filter((r) => r.organizations));
+    // Pending invites: the invited user can read their own membership row (RLS allows
+    // user_id = auth.uid()) but not the organization row until they accept.
+    const { data: pending } = await supabase
+      .from("memberships")
+      .select("id, organization_id, role")
+      .eq("user_id", userId)
+      .eq("status", "invited");
+    setInvites((pending ?? []) as PendingInvite[]);
     if (rows.length && (!orgId || !rows.some((m) => m.organization_id === orgId))) {
       setOrgId(rows[0]!.organization_id);
       localStorage.setItem("crm.org", rows[0]!.organization_id);
@@ -52,7 +64,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.auth.getSession();
     setSession(data.session);
     if (data.session?.user) await loadMemberships(data.session.user.id);
-    else setMemberships([]);
+    else {
+      setMemberships([]);
+      setInvites([]);
+    }
   }
 
   useEffect(() => {
@@ -60,7 +75,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
       if (next?.user) void loadMemberships(next.user.id);
-      else setMemberships([]);
+      else {
+        setMemberships([]);
+        setInvites([]);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -75,6 +93,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     loading,
     memberships,
+    invites,
     org,
     setOrgId: (id) => {
       setOrgId(id);

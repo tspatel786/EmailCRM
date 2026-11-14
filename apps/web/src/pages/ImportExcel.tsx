@@ -82,6 +82,7 @@ export function ImportExcelPage() {
           column_map: map,
           total_rows: rows.length,
           created_by: user.id,
+          owner_user_id: user.id,
         })
         .select()
         .single();
@@ -145,6 +146,7 @@ export function ImportExcelPage() {
         const { error } = await supabase.from("contacts").insert({
           organization_id: org.organization_id,
           created_by: user.id,
+          owner_user_id: user.id,
           ...payload,
           consent_status: consentVal,
           email_opt_in: consentVal === "granted",

@@ -163,6 +163,7 @@ export function QuotationsPage() {
           status: values.requires_approval ? "pending_approval" : "draft",
           organization_id: org!.organization_id,
           created_by: user!.id,
+          owner_user_id: user!.id,
           current_version: 1,
         })
         .select()
