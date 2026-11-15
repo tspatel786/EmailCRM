@@ -112,7 +112,11 @@ export function SettingsPage() {
         <Button variant="secondary" onClick={() => void enrollMfa()}>
           Start TOTP enrollment
         </Button>
-        {secret ? <p className="break-all text-sm">Secret: {secret}</p> : null}
+        {secret ? (
+          <p className="text-sm">
+            Secret: <span className="break-all">{secret}</span>
+          </p>
+        ) : null}
         {factorId ? (
           <Field label="Verification code">
             <Input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" />

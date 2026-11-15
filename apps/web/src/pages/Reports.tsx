@@ -245,7 +245,7 @@ function BreakdownCard({
           {rows.map((r) => (
             <li key={r.label}>
               <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                <span className="truncate capitalize text-ink-700">{r.label}</span>
+                <span className="min-w-0 flex-1 truncate capitalize text-ink-700">{r.label}</span>
                 <span className="shrink-0 tabular-nums">
                   <span className="font-semibold text-ink-900">{r.n}</span>
                   <span className="ml-1.5 text-xs text-ink-400">{Math.round((r.n / total) * 100)}%</span>
