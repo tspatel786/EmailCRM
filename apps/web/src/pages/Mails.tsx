@@ -330,12 +330,15 @@ export function MailsPage() {
       />
 
       {/* Mail client */}
-      <div className="flex min-h-[560px] flex-col overflow-hidden rounded-card border border-ink-200/80 bg-white shadow-card lg:h-[calc(100dvh-var(--topbar-height)-11rem)] lg:flex-row">
+      <div className="flex min-h-[560px] flex-col overflow-hidden rounded-card border border-ink-200/70 bg-white shadow-pop lg:h-[calc(100dvh-var(--topbar-height)-11rem)] lg:flex-row">
         {/* Folders: horizontal tabs below lg, sidebar column on lg+ */}
         <nav
           aria-label="Mail folders"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-ink-100 p-2 lg:w-56 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r lg:p-3"
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-ink-100 bg-ink-50/40 p-2 lg:w-56 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r lg:bg-transparent lg:p-3"
         >
+          <span className="hidden px-3 pb-1 text-2xs font-semibold uppercase tracking-wide text-ink-400 lg:block">
+            Folders
+          </span>
           {folders.map((f) => {
             const active = activeFolder === f.key;
             return (
@@ -348,21 +351,33 @@ export function MailsPage() {
                   setReaderOpen(false);
                 }}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-10 shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors lg:w-full ${
-                  active ? "bg-primary-50 text-primary-800 ring-1 ring-inset ring-primary-200" : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+                className={`relative flex min-h-10 shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors lg:w-full ${
+                  active
+                    ? "bg-primary-50 text-primary-800 shadow-sm ring-1 ring-inset ring-primary-200"
+                    : "text-ink-600 hover:bg-white hover:text-ink-900 hover:shadow-sm"
                 }`}
               >
+                {active ? (
+                  <span className="absolute inset-y-1.5 left-0 hidden w-[3px] rounded-full bg-primary-500 lg:block" aria-hidden />
+                ) : null}
                 <span className="flex items-center gap-2.5">
-                  <f.icon className={`h-4 w-4 ${active ? "text-primary-600" : "text-ink-400"}`} />
+                  <span
+                    className={`flex h-7 w-7 items-center justify-center rounded-md ${
+                      active ? "bg-primary-100 text-primary-700" : "bg-ink-100 text-ink-500"
+                    }`}
+                  >
+                    <f.icon className="h-4 w-4" />
+                  </span>
                   {f.label}
                 </span>
                 {f.count ? (
-                  <span className="rounded-full bg-primary-500 px-2 py-0.5 text-2xs font-bold text-ink-950">{f.count}</span>
+                  <span className="rounded-full bg-primary-500 px-2 py-0.5 text-2xs font-bold text-white shadow-sm">{f.count}</span>
                 ) : null}
               </button>
             );
           })}
-          <div className="mt-auto hidden border-t border-ink-100 px-2 pt-4 text-xs text-ink-400 lg:block">
+          <div className="mt-auto hidden items-center gap-1.5 border-t border-ink-100 px-2 pt-4 text-xs text-ink-400 lg:flex">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
             Connected: <span className="font-semibold text-ink-600">Resend HTTPS</span>
           </div>
         </nav>
@@ -399,14 +414,19 @@ export function MailsPage() {
                       setReaderOpen(true);
                     }}
                     aria-current={isSelected ? "true" : undefined}
-                    className={`relative flex w-full gap-3 px-4 py-3 text-left transition-colors focus-visible:bg-ink-50 focus-visible:outline-none ${
-                      isSelected ? "bg-primary-50/60" : msg.is_read ? "hover:bg-ink-50" : "bg-sky-50/40 hover:bg-sky-50/70"
+                    className={`relative flex w-full gap-3 px-4 py-3.5 text-left transition-colors focus-visible:bg-ink-50 focus-visible:outline-none ${
+                      isSelected ? "bg-primary-50/70" : msg.is_read ? "hover:bg-ink-50" : "bg-sky-50/50 hover:bg-sky-50/80"
                     }`}
                   >
-                    {isSelected ? <span className="absolute inset-y-0 left-0 w-[3px] bg-primary-500" aria-hidden /> : null}
                     <span
-                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        msg.is_read ? "bg-ink-100 text-ink-500" : "bg-ink-900 text-white"
+                      className={`absolute inset-y-0 left-0 w-[3px] ${
+                        isSelected ? "bg-primary-500" : !msg.is_read ? "bg-sky-400" : "bg-transparent"
+                      }`}
+                      aria-hidden
+                    />
+                    <span
+                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ${
+                        msg.is_read ? "bg-ink-100 text-ink-500 ring-white" : "bg-primary-500 text-white ring-primary-100"
                       }`}
                       aria-hidden
                     >
@@ -415,20 +435,24 @@ export function MailsPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className={`truncate text-sm ${!msg.is_read ? "font-semibold text-ink-900" : "text-ink-700"}`}>{who}</span>
-                        <span className="shrink-0 text-2xs text-ink-400">
+                        <span className="shrink-0 text-2xs font-medium text-ink-400">
                           {new Date(msg.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
                         </span>
                       </span>
-                      <span className={`mt-0.5 flex items-center gap-1.5 truncate text-sm ${!msg.is_read ? "font-semibold text-ink-900" : "text-ink-800"}`}>
+                      <span className={`mt-1 flex items-center gap-1.5 truncate text-sm ${!msg.is_read ? "font-semibold text-ink-900" : "text-ink-800"}`}>
                         {!msg.is_read ? <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-label="Unread" /> : null}
                         <span className="truncate">{msg.subject || "(No Subject)"}</span>
                       </span>
-                      <span className="mt-0.5 line-clamp-1 text-xs text-ink-500">{msg.body_text || "No preview"}</span>
+                      <span className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-ink-500">{msg.body_text || "No preview"}</span>
                       <span className="mt-2 flex min-w-0 items-center gap-2">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold capitalize ring-1 ring-inset ${statusTone(msg.status)}`}>
                           {msg.status}
                         </span>
-                        {msg.contacts ? <span className="truncate text-2xs text-ink-400">• {msg.contacts.full_name}</span> : null}
+                        {msg.contacts ? (
+                          <span className="truncate text-2xs text-ink-400">
+                            <Building className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" aria-hidden /> {msg.contacts.full_name}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                   </button>
@@ -451,21 +475,29 @@ export function MailsPage() {
                   <ArrowLeft size={16} /> Back to {activeFolder}
                 </button>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1.5">
-                    <h2 className="break-words font-display text-lg font-bold leading-snug text-ink-900">
-                      {selectedMessage.subject || "(No Subject)"}
-                    </h2>
-                    <p className="break-all text-sm text-ink-600">
-                      <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name} &lt;{selectedMessage.from_email}&gt;
-                    </p>
-                    <p className="break-all text-sm text-ink-500">
-                      <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name} &lt;{selectedMessage.to_email}&gt;
-                    </p>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className="mt-0.5 hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink-900 text-sm font-bold text-white sm:flex"
+                      aria-hidden
+                    >
+                      {initialsOf(selectedMessage.from_name || selectedMessage.from_email)}
+                    </span>
+                    <div className="min-w-0 space-y-1.5">
+                      <h2 className="break-words font-display text-lg font-bold leading-snug text-ink-900">
+                        {selectedMessage.subject || "(No Subject)"}
+                      </h2>
+                      <p className="break-all text-sm text-ink-600">
+                        <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name} &lt;{selectedMessage.from_email}&gt;
+                      </p>
+                      <p className="break-all text-sm text-ink-500">
+                        <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name} &lt;{selectedMessage.to_email}&gt;
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1 rounded-lg border border-ink-200/80 bg-ink-50/60 p-1">
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="ghost"
                       aria-label={selectedMessage.is_starred ? "Unstar" : "Star"}
                       title={selectedMessage.is_starred ? "Unstar" : "Star"}
                       className="px-3"
@@ -473,7 +505,7 @@ export function MailsPage() {
                     >
                       <Star className={`h-4 w-4 ${selectedMessage.is_starred ? "fill-primary-400 text-primary-500" : "text-ink-400"}`} />
                     </Button>
-                    <Button type="button" variant="secondary" onClick={handleOpenReply}>
+                    <Button type="button" variant="ghost" onClick={handleOpenReply}>
                       <Reply size={16} />
                       Reply
                     </Button>
