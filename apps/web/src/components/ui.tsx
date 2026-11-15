@@ -36,13 +36,13 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         {icon ? (
-          <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100 sm:flex">
+          <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100 dark:bg-primary-500/10 dark:text-primary-400 dark:ring-primary-500/20 sm:flex">
             {icon}
           </div>
         ) : null}
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-ink-900 sm:text-[1.65rem]">{title}</h1>
-          {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500">{subtitle}</p> : null}
+          <h1 className="font-display text-2xl font-bold tracking-tight text-ink-900 dark:text-white sm:text-[1.65rem]">{title}</h1>
+          {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500 dark:text-ink-400">{subtitle}</p> : null}
         </div>
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2 sm:justify-end [&>*]:shrink-0">{actions}</div> : null}
@@ -52,7 +52,7 @@ export function PageHeader({
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-card border border-ink-200/80 bg-white p-4 shadow-card sm:p-5", className)}>
+    <div className={cn("rounded-card border border-ink-200/80 bg-white p-4 shadow-card dark:border-ink-800 dark:bg-ink-900 sm:p-5", className)}>
       {children}
     </div>
   );
@@ -72,10 +72,10 @@ export function CardHeader({
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2.5">
-        {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600">{icon}</span> : null}
+        {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300">{icon}</span> : null}
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-ink-900">{title}</h2>
-          {subtitle ? <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p> : null}
+          <h2 className="truncate text-sm font-semibold text-ink-900 dark:text-white">{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{subtitle}</p> : null}
         </div>
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -106,8 +106,8 @@ const buttonVariants: Record<ButtonVariant, string> = {
   primary:
     "bg-primary-500 text-ink-950 font-semibold shadow-sm shadow-primary-500/20 hover:bg-primary-400 active:bg-primary-600 focus-visible:ring-primary-500/30",
   secondary:
-    "border border-ink-200 bg-white text-ink-700 shadow-sm hover:border-ink-300 hover:bg-ink-50 hover:text-ink-900 active:bg-ink-100 focus-visible:ring-ink-400/20",
-  ghost: "text-ink-600 hover:bg-ink-100 hover:text-ink-900 active:bg-ink-200/70 focus-visible:ring-ink-400/20",
+    "border border-ink-200 bg-white text-ink-700 shadow-sm hover:border-ink-300 hover:bg-ink-50 hover:text-ink-900 active:bg-ink-100 focus-visible:ring-ink-400/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-ink-600 dark:hover:bg-ink-700 dark:hover:text-white dark:active:bg-ink-900",
+  ghost: "text-ink-600 hover:bg-ink-100 hover:text-ink-900 active:bg-ink-200/70 focus-visible:ring-ink-400/20 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white dark:active:bg-ink-700/70",
   danger:
     "bg-rose-600 text-white font-semibold shadow-sm shadow-rose-600/20 hover:bg-rose-500 active:bg-rose-700 focus-visible:ring-rose-500/30",
 };
@@ -142,7 +142,7 @@ export const Button = forwardRef<
 });
 
 const controlBase =
-  "w-full rounded-control border border-ink-200 bg-white px-3.5 text-sm text-ink-900 shadow-sm transition-[border-color,box-shadow] duration-150 placeholder:text-ink-400 hover:border-ink-300 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/15 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/15";
+  "w-full rounded-control border border-ink-200 bg-white px-3.5 text-sm text-ink-900 shadow-sm transition-[border-color,box-shadow] duration-150 placeholder:text-ink-400 hover:border-ink-300 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/15 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-500/15 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500 dark:hover:border-ink-600 dark:disabled:bg-ink-800 dark:disabled:text-ink-600";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(props, ref) {
   const isCheck = props.type === "checkbox" || props.type === "radio";
@@ -153,7 +153,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
       className={cn(
         isCheck
           ? "h-4 w-4 cursor-pointer rounded border-ink-300 text-primary-600 accent-primary-500 focus:ring-primary-500"
-          : cn(controlBase, props.type === "file" ? "py-2 file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-ink-700 hover:file:bg-ink-200" : "min-h-10 py-2"),
+          : cn(controlBase, props.type === "file" ? "py-2 file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-ink-700 hover:file:bg-ink-200 dark:file:bg-ink-700 dark:file:text-ink-200 dark:hover:file:bg-ink-600" : "min-h-10 py-2"),
         props.className,
       )}
     />
@@ -169,7 +169,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     <select
       ref={ref}
       {...props}
-      className={cn(controlBase, "select-chevron min-h-10 cursor-pointer appearance-none py-2 pr-9 text-ink-800", props.className)}
+      className={cn(controlBase, "select-chevron min-h-10 cursor-pointer appearance-none py-2 pr-9 text-ink-800 dark:text-ink-200", props.className)}
     />
   );
 });
@@ -181,7 +181,7 @@ export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
 ) {
   return (
     <div className={cn("crm-search relative w-full", className)}>
-      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" aria-hidden />
+      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 dark:text-ink-500" aria-hidden />
       <input
         ref={ref}
         type="search"
@@ -210,18 +210,18 @@ export function Field({
 }) {
   return (
     <label className={cn("block min-w-0 space-y-1.5", className)}>
-      <span className="flex items-center gap-1 text-xs font-semibold text-ink-700">
+      <span className="flex items-center gap-1 text-xs font-semibold text-ink-700 dark:text-ink-300">
         {label}
         {required ? <span className="text-rose-500" aria-hidden>*</span> : null}
       </span>
       {children}
       {error ? (
-        <span className="flex items-start gap-1 text-xs font-medium text-rose-600" role="alert">
+        <span className="flex items-start gap-1 text-xs font-medium text-rose-600 dark:text-rose-400" role="alert">
           <AlertCircle size={13} className="mt-px shrink-0" />
           {error}
         </span>
       ) : hint ? (
-        <span className="block text-xs text-ink-500">{hint}</span>
+        <span className="block text-xs text-ink-500 dark:text-ink-400">{hint}</span>
       ) : null}
     </label>
   );
@@ -232,13 +232,13 @@ export function Field({
 export type BadgeTone = "slate" | "green" | "amber" | "rose" | "teal" | "blue" | "violet";
 
 const badgeTones: Record<BadgeTone, string> = {
-  slate: "bg-ink-100 text-ink-700 ring-ink-200",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  amber: "bg-primary-50 text-primary-800 ring-primary-200",
-  rose: "bg-rose-50 text-rose-700 ring-rose-200",
-  teal: "bg-teal-50 text-teal-800 ring-teal-200",
-  blue: "bg-sky-50 text-sky-700 ring-sky-200",
-  violet: "bg-violet-50 text-violet-700 ring-violet-200",
+  slate: "bg-ink-100 text-ink-700 ring-ink-200 dark:bg-ink-800 dark:text-ink-200 dark:ring-ink-700",
+  green: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20",
+  amber: "bg-primary-50 text-primary-800 ring-primary-200 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20",
+  rose: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20",
+  teal: "bg-teal-50 text-teal-800 ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20",
+  blue: "bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20",
+  violet: "bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20",
 };
 
 const badgeDots: Record<BadgeTone, string> = {
@@ -267,12 +267,12 @@ export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?
 
 export function Empty({ title, hint, icon, action }: { title: string; hint?: string; icon?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center rounded-card border border-dashed border-ink-300/80 bg-ink-50/60 px-6 py-12 text-center">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink-400 shadow-card ring-1 ring-ink-200">
+    <div className="flex flex-col items-center rounded-card border border-dashed border-ink-300/80 bg-ink-50/60 px-6 py-12 text-center dark:border-ink-700/80 dark:bg-ink-800/40">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink-400 shadow-card ring-1 ring-ink-200 dark:bg-ink-900 dark:text-ink-500 dark:ring-ink-700">
         {icon ?? <Inbox size={20} />}
       </div>
-      <p className="text-sm font-semibold text-ink-800">{title}</p>
-      {hint ? <p className="mx-auto mt-1 max-w-md text-xs text-ink-500 sm:text-sm">{hint}</p> : null}
+      <p className="text-sm font-semibold text-ink-800 dark:text-ink-100">{title}</p>
+      {hint ? <p className="mx-auto mt-1 max-w-md text-xs text-ink-500 dark:text-ink-400 sm:text-sm">{hint}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -280,7 +280,7 @@ export function Empty({ title, hint, icon, action }: { title: string; hint?: str
 
 export function ErrorBox({ message }: { message: string }) {
   return (
-    <div role="alert" className="flex items-start gap-2 rounded-control border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800">
+    <div role="alert" className="flex items-start gap-2 rounded-control border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
       <AlertCircle size={16} className="mt-0.5 shrink-0" />
       <span className="min-w-0 break-words">{message}</span>
     </div>
@@ -290,8 +290,8 @@ export function ErrorBox({ message }: { message: string }) {
 export function Spinner({ size = "md", label }: { size?: "sm" | "md" | "lg"; label?: string }) {
   const s = { sm: "h-4 w-4", md: "h-6 w-6", lg: "h-9 w-9" }[size];
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-ink-500" role="status">
-      <span className={cn(s, "animate-spin rounded-full border-2 border-ink-200 border-t-primary-500")} />
+    <span className="inline-flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400" role="status">
+      <span className={cn(s, "animate-spin rounded-full border-2 border-ink-200 border-t-primary-500 dark:border-ink-700 dark:border-t-primary-400")} />
       {label ? <span>{label}</span> : <span className="sr-only">Loading</span>}
     </span>
   );
@@ -334,22 +334,22 @@ export function StatCard({
   hint?: ReactNode;
 }) {
   const iconTone: Record<BadgeTone, string> = {
-    slate: "bg-ink-100 text-ink-600",
-    green: "bg-emerald-50 text-emerald-600",
-    amber: "bg-primary-50 text-primary-600",
-    rose: "bg-rose-50 text-rose-600",
-    teal: "bg-teal-50 text-teal-600",
-    blue: "bg-sky-50 text-sky-600",
-    violet: "bg-violet-50 text-violet-600",
+    slate: "bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300",
+    green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    amber: "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400",
+    rose: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
+    teal: "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400",
+    blue: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
   };
   return (
-    <div className="group rounded-card border border-ink-200/80 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-card-hover">
+    <div className="group rounded-card border border-ink-200/80 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-card-hover dark:border-ink-800 dark:bg-ink-900">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium text-ink-500">{label}</p>
+        <p className="text-xs font-medium text-ink-500 dark:text-ink-400">{label}</p>
         {icon ? <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconTone[tone])}>{icon}</span> : null}
       </div>
-      <p className="mt-2 font-display text-2xl font-bold tracking-tight text-ink-900 tabular-nums">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-ink-500">{hint}</p> : null}
+      <p className="mt-2 font-display text-2xl font-bold tracking-tight text-ink-900 tabular-nums dark:text-white">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-ink-500 dark:text-ink-400">{hint}</p> : null}
     </div>
   );
 }
@@ -395,21 +395,21 @@ export function Modal({
       <div className="absolute inset-0 animate-fade-in bg-ink-950/50 backdrop-blur-[2px]" aria-hidden onClick={onClose} />
       <div
         className={cn(
-          "relative z-10 flex max-h-[92dvh] w-full animate-slide-up flex-col rounded-t-2xl bg-white shadow-pop sm:max-h-[88vh] sm:animate-scale-in sm:rounded-2xl",
+          "relative z-10 flex max-h-[92dvh] w-full animate-slide-up flex-col rounded-t-2xl bg-white shadow-pop dark:bg-ink-900 sm:max-h-[88vh] sm:animate-scale-in sm:rounded-2xl",
           width,
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4 sm:px-6">
+        <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
           <div className="min-w-0">
-            <h2 id={titleId} className="font-display text-lg font-bold leading-snug text-ink-900">
+            <h2 id={titleId} className="font-display text-lg font-bold leading-snug text-ink-900 dark:text-white">
               {title}
             </h2>
-            {description ? <p className="mt-0.5 text-sm text-ink-500">{description}</p> : null}
+            {description ? <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">{description}</p> : null}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ink-400/20"
+            className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ink-400/20 dark:text-ink-500 dark:hover:bg-ink-800 dark:hover:text-ink-200"
             aria-label="Close dialog"
           >
             <X size={18} />
@@ -443,13 +443,13 @@ export function Confirm({
   return (
     <Modal open={open} title={title} onClose={onClose} size="sm">
       <div className="flex gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
           <AlertCircle size={20} />
         </span>
-        <p className="pt-1 text-sm leading-relaxed text-ink-600">{body}</p>
+        <p className="pt-1 text-sm leading-relaxed text-ink-600 dark:text-ink-300">{body}</p>
       </div>
       {error ? <div className="mt-4"><ErrorBox message={error} /></div> : null}
-      <div className="mt-6 flex flex-col-reverse gap-2 border-t border-ink-100 pt-4 sm:flex-row sm:justify-end">
+      <div className="mt-6 flex flex-col-reverse gap-2 border-t border-ink-100 pt-4 dark:border-ink-800 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
           Cancel
         </Button>

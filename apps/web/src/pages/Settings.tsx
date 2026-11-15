@@ -78,12 +78,12 @@ export function SettingsPage() {
       {admin ? (
         <Card className="max-w-lg space-y-3">
           {save.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(save.error as Error).message || "Failed to save settings"}
             </div>
           ) : null}
           {savedSuccess ? (
-            <div className="rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+            <div className="rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30">
               Settings updated successfully.
             </div>
           ) : null}
@@ -96,7 +96,7 @@ export function SettingsPage() {
           <Field label="Timezone">
             <Input value={timezone} onChange={(e) => { setTimezone(e.target.value); setSavedSuccess(false); }} />
           </Field>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-ink-400">
             Retention is configured as `organizations.retention_days` in the database. Provider backups are time-limited; yearly hosting renewal does not imply indefinite data retention. See docs/BACKUP_RESTORE.md.
           </p>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
@@ -104,11 +104,11 @@ export function SettingsPage() {
           </Button>
         </Card>
       ) : (
-        <p className="text-sm text-slate-600">Only owners and admins can change organization settings.</p>
+        <p className="text-sm text-slate-600 dark:text-ink-300">Only owners and admins can change organization settings.</p>
       )}
       <Card className="mt-4 max-w-lg space-y-3">
         <h2 className="font-medium">Privileged MFA (TOTP)</h2>
-        <p className="text-sm text-slate-600">Enroll a TOTP factor on your Auth user. Recommended for owner and admin accounts.</p>
+        <p className="text-sm text-slate-600 dark:text-ink-300">Enroll a TOTP factor on your Auth user. Recommended for owner and admin accounts.</p>
         <Button variant="secondary" onClick={() => void enrollMfa()}>
           Start TOTP enrollment
         </Button>

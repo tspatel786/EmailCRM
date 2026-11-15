@@ -187,9 +187,9 @@ export function FollowUpsPage() {
             {filtered
               .filter((t) => t.due_at)
               .map((t) => (
-                <div key={t.id} className="rounded-lg border p-3 text-sm">
+                <div key={t.id} className="rounded-lg border border-ink-200 p-3 text-sm dark:border-ink-800">
                   <p className="font-medium">{t.title}</p>
-                  <p className="text-slate-500">{fmtDateTime(t.due_at)}</p>
+                  <p className="text-slate-500 dark:text-ink-400">{fmtDateTime(t.due_at)}</p>
                   <Badge tone={derivedStatus(t) === "overdue" ? "rose" : "slate"}>{derivedStatus(t)}</Badge>
                 </div>
               ))}
@@ -247,13 +247,13 @@ export function FollowUpsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to create task"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}

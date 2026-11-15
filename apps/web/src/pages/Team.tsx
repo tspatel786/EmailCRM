@@ -3,8 +3,13 @@ import { useState } from "react";
 import { canAdmin, canInviteRole, ROLES, type AppRole } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { invokeFunction, supabase } from "../lib/supabase";
-import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, TableSkeleton, TableWrap } from "../components/ui";
 import { Shield as ShieldIcon } from "lucide-react";
+
+const statusTone: Record<string, "green" | "amber" | "slate"> = {
+  active: "green",
+  invited: "amber",
+};
 
 export function TeamPage() {
   const { org } = useSession();
@@ -68,28 +73,38 @@ export function TeamPage() {
           ) : null
         }
       />
-      {!members.data?.length ? (
+      {members.isLoading ? (
+        <Card>
+          <TableSkeleton rows={5} />
+        </Card>
+      ) : !members.data?.length ? (
         <Empty title="No members visible" />
       ) : (
         <Card>
-          <div className="table-scroll"><table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="py-2">Name</th>
-                <th>Role</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.data.map((m) => (
-                <tr key={m.id} className="border-t">
-                  <td className="py-2">{(m.profiles as { full_name?: string } | null)?.full_name}</td>
-                  <td>{m.role}</td>
-                  <td>{m.status}</td>
+          <TableWrap>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="py-2">Name</th>
+                  <th>Role</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+              </thead>
+              <tbody>
+                {members.data.map((m) => (
+                  <tr key={m.id} className="border-t">
+                    <td className="py-2">{(m.profiles as { full_name?: string } | null)?.full_name}</td>
+                    <td>
+                      <Badge tone="blue">{m.role}</Badge>
+                    </td>
+                    <td>
+                      <Badge tone={statusTone[m.status] ?? "slate"}>{m.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
         </Card>
       )}
       <Modal open={open} title="Invite member" onClose={() => setOpen(false)}>
@@ -101,7 +116,7 @@ export function TeamPage() {
           }}
         >
           {invite.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(invite.error as Error).message}
             </div>
           ) : null}

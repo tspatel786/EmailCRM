@@ -231,12 +231,12 @@ export function TemplatesPage() {
 
       {/* Post-Save Demo Email Trigger Notification Banner */}
       {postSaveNotice && (
-        <div className="mb-4 rounded-xl border border-emerald-300 bg-emerald-50/90 p-4 flex flex-wrap items-center justify-between gap-3 text-emerald-950 shadow-sm animate-fadeIn">
+        <div className="mb-4 rounded-xl border border-emerald-300 bg-emerald-50/90 p-4 flex flex-wrap items-center justify-between gap-3 text-emerald-950 shadow-sm animate-fadeIn dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
           <div className="flex items-center gap-3">
             <span className="text-2xl">✨</span>
             <div>
               <p className="font-bold text-sm">Template "{postSaveNotice.name}" saved successfully! (टेंप्लेट सेव्ह झाले)</p>
-              <p className="text-xs text-emerald-800 mt-0.5">
+              <p className="text-xs text-emerald-800 mt-0.5 dark:text-emerald-300">
                 Would you like to trigger a demo email to test how it looks in an actual inbox?
               </p>
             </div>
@@ -276,19 +276,19 @@ export function TemplatesPage() {
                     <FileText size={17} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold text-ink-900">{t.name}</h3>
-                    <p className="truncate text-sm text-ink-500">{t.subject}</p>
+                    <h3 className="truncate text-sm font-semibold text-ink-900 dark:text-white">{t.name}</h3>
+                    <p className="truncate text-sm text-ink-500 dark:text-ink-400">{t.subject}</p>
                   </div>
                 </div>
-                <pre className="mt-3 line-clamp-4 flex-1 whitespace-pre-wrap break-words rounded-lg border border-ink-100 bg-ink-50 p-3 font-sans text-xs leading-relaxed text-ink-600 [overflow-wrap:anywhere]">{t.body_text || t.body_html}</pre>
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
+                <pre className="mt-3 line-clamp-4 flex-1 whitespace-pre-wrap break-words rounded-lg border border-ink-100 bg-ink-50 p-3 font-sans text-xs leading-relaxed text-ink-600 [overflow-wrap:anywhere] dark:border-ink-800 dark:bg-ink-800/40 dark:text-ink-300">{t.body_text || t.body_html}</pre>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 dark:border-ink-800">
                   <Button variant="secondary" size="sm" onClick={() => openDemoModal(t as Template)} title="Trigger a demo email to test this template">
                     🚀 Demo Mail
                   </Button>
                   {manage ? (
                     <>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(t as Template)}>Edit</Button>
-                      <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => setDeleteTarget(t.id)}>Archive</Button>
+                      <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300" onClick={() => setDeleteTarget(t.id)}>Archive</Button>
                     </>
                   ) : null}
                 </div>
@@ -306,13 +306,13 @@ export function TemplatesPage() {
           )}
         >
           {save.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
               {(save.error as Error).message || "Failed to save template"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !save.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -338,8 +338,8 @@ export function TemplatesPage() {
             />
           </Field>
           <Card>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Preview</p>
-            <p className="mt-1 text-sm text-slate-700">{preview || "(Start typing above to preview variable substitution)"}</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase dark:text-ink-400">Preview</p>
+            <p className="mt-1 text-sm text-slate-700 dark:text-ink-200">{preview || "(Start typing above to preview variable substitution)"}</p>
           </Card>
           <div className="flex gap-2">
             <Button type="submit" disabled={save.isPending} className="flex-1">
@@ -380,18 +380,18 @@ export function TemplatesPage() {
       <Modal size="lg" open={Boolean(demoTarget)} title={`Send Demo Email: ${demoTarget?.name || "Template"}`} onClose={() => setDemoTarget(null)}>
         {demoTarget && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 leading-relaxed">
+            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 leading-relaxed dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
               💡 <strong>डेमो मेल चाचणी (Demo Email Test):</strong> ही चाचणी तुमच्या मेल इनबॉक्समध्ये टेम्पलेट प्रत्यक्ष कसे दिसते, व्हेरिएबल्स (उदा. नाव, कंपनी) कसे बदलतात आणि फॉरमॅटिंग बरोबर आहे का हे तपासण्यासाठी आहे.
             </div>
 
             {demoStatus === "sent" && (
-              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                 {demoMessage}
               </div>
             )}
 
             {demoStatus === "error" && (
-              <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
+              <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                 {demoMessage}
               </div>
             )}
@@ -407,13 +407,13 @@ export function TemplatesPage() {
               />
             </Field>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2 dark:border-ink-700 dark:bg-ink-800/40">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 block dark:text-ink-300">
                 Sample Test Variables (नमुना व्हेरिएबल्स)
               </span>
               <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                 <div>
-                  <label className="text-slate-500 block mb-1">Name ({"{{name}}"}):</label>
+                  <label className="text-slate-500 block mb-1 dark:text-ink-400">Name ({"{{name}}"}):</label>
                   <Input
                     className="text-xs py-1"
                     value={demoVars.name}
@@ -421,7 +421,7 @@ export function TemplatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-500 block mb-1">Company ({"{{company}}"}):</label>
+                  <label className="text-slate-500 block mb-1 dark:text-ink-400">Company ({"{{company}}"}):</label>
                   <Input
                     className="text-xs py-1"
                     value={demoVars.company}
@@ -429,7 +429,7 @@ export function TemplatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-500 block mb-1">Service ({"{{service}}"}):</label>
+                  <label className="text-slate-500 block mb-1 dark:text-ink-400">Service ({"{{service}}"}):</label>
                   <Input
                     className="text-xs py-1"
                     value={demoVars.service}
@@ -437,7 +437,7 @@ export function TemplatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-500 block mb-1">City ({"{{city}}"}):</label>
+                  <label className="text-slate-500 block mb-1 dark:text-ink-400">City ({"{{city}}"}):</label>
                   <Input
                     className="text-xs py-1"
                     value={demoVars.city}
@@ -449,13 +449,13 @@ export function TemplatesPage() {
 
             <Card>
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase block">Subject Preview</span>
-                <p className="text-xs font-medium text-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase block dark:text-ink-400">Subject Preview</span>
+                <p className="text-xs font-medium text-slate-800 dark:text-ink-100">
                   {personalize(demoTarget.subject || "", { ...demoVars, email: demoEmail })}
                 </p>
-                <div className="pt-2 border-t border-slate-100">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase block">Body Preview</span>
-                  <pre className="text-xs text-slate-700 whitespace-pre-wrap mt-1 font-sans line-clamp-6 bg-white p-2 rounded border border-slate-100">
+                <div className="pt-2 border-t border-slate-100 dark:border-ink-800">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase block dark:text-ink-400">Body Preview</span>
+                  <pre className="text-xs text-slate-700 whitespace-pre-wrap mt-1 font-sans line-clamp-6 bg-white p-2 rounded border border-slate-100 dark:text-ink-200 dark:bg-ink-800 dark:border-ink-700">
                     {personalize(demoTarget.body_text || demoTarget.body_html || "", { ...demoVars, email: demoEmail })}
                   </pre>
                 </div>

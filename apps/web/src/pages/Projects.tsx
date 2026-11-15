@@ -6,7 +6,7 @@ import { canWrite, projectFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea, SearchInput } from "../components/ui";
 import { MemberSelect } from "./Companies";
 import { FolderKanban as FolderKanbanIcon } from "lucide-react";
 import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
@@ -308,13 +308,17 @@ export function ProjectsPage() {
         />
       </div>
 
-      {!pageItems.length ? (
+      {list.isLoading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : list.error ? (
+        <ErrorBox message={(list.error as Error).message || "Failed to load projects"} />
+      ) : !pageItems.length ? (
         <Empty title="No projects found" hint={search ? "Try adjusting your filters" : "Create a project to start tracking milestones."} />
       ) : (
         <Card>
           <div className="table-scroll"><table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-slate-500 dark:text-ink-400">
                 <th className="py-2">Name</th>
                 <th>Client</th>
                 <th>Status</th>
@@ -343,7 +347,7 @@ export function ProjectsPage() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-slate-500">
+              <span className="text-slate-500 dark:text-ink-400">
                 Page {page} of {totalPages} ({filtered.length} projects)
               </span>
               <div className="flex gap-2">
@@ -369,13 +373,13 @@ export function ProjectsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to create project"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -408,25 +412,25 @@ export function ProjectsPage() {
           <div className="space-y-6">
             {/* Edit Details */}
             <form
-              className="space-y-3 border-b border-slate-200 pb-4"
+              className="space-y-3 border-b border-slate-200 pb-4 dark:border-ink-800"
               onSubmit={editForm.handleSubmit(
                 (v) => updateProject.mutate(v),
                 (errors) => console.warn("Edit project validation errors:", errors)
               )}
             >
               {updateProject.error ? (
-                <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+                <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
                   {(updateProject.error as Error).message || "Failed to update project"}
                 </div>
               ) : null}
 
               {Object.keys(editForm.formState.errors).length > 0 && !updateProject.error ? (
-                <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+                <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30">
                   Please fix the highlighted errors before saving.
                 </div>
               ) : null}
 
-              <h3 className="font-semibold text-slate-800">Project Details</h3>
+              <h3 className="font-semibold text-slate-800 dark:text-ink-100">Project Details</h3>
               <Field label="Project Name" error={editForm.formState.errors.name?.message}>
                 <Input {...editForm.register("name")} required />
               </Field>
@@ -453,14 +457,14 @@ export function ProjectsPage() {
             </form>
 
             {/* Milestones Management */}
-            <div className="space-y-3 border-b border-slate-200 pb-4">
-              <h3 className="font-semibold text-slate-800">Milestones</h3>
+            <div className="space-y-3 border-b border-slate-200 pb-4 dark:border-ink-800">
+              <h3 className="font-semibold text-slate-800 dark:text-ink-100">Milestones</h3>
               {milestones.data?.length === 0 ? (
-                <p className="text-sm text-slate-500">No milestones yet for this project.</p>
+                <p className="text-sm text-slate-500 dark:text-ink-400">No milestones yet for this project.</p>
               ) : (
                 <ul className="space-y-2">
                   {milestones.data?.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm">
+                    <li key={m.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm dark:border-ink-700 dark:bg-ink-800/40">
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -469,10 +473,10 @@ export function ProjectsPage() {
                           onChange={(e) => toggleMilestone.mutate({ id: m.id, completed: e.target.checked })}
                           className="h-4 w-4 rounded border-slate-300 accent-primary-500"
                         />
-                        <span className={m.completed_at ? "line-through text-slate-400" : "font-medium text-slate-800"}>
+                        <span className={m.completed_at ? "line-through text-slate-400 dark:text-ink-500" : "font-medium text-slate-800 dark:text-ink-100"}>
                           {m.title}
                         </span>
-                        {m.due_date && <span className="text-xs text-slate-500">(Due: {m.due_date})</span>}
+                        {m.due_date && <span className="text-xs text-slate-500 dark:text-ink-400">(Due: {m.due_date})</span>}
                       </div>
                       <Badge tone={m.completed_at ? "green" : "slate"}>
                         {m.completed_at ? "Done" : "Pending"}
@@ -485,7 +489,7 @@ export function ProjectsPage() {
               {writable && (
                 <div className="space-y-2 pt-2">
                   {(addMilestone.error || toggleMilestone.error) ? (
-                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
                       {((addMilestone.error || toggleMilestone.error) as Error).message || "Milestone update failed"}
                     </div>
                   ) : null}
@@ -517,18 +521,18 @@ export function ProjectsPage() {
 
             {/* Team Members Management */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-slate-800">Team Members</h3>
+              <h3 className="font-semibold text-slate-800 dark:text-ink-100">Team Members</h3>
               {projectMembers.data?.length === 0 ? (
-                <p className="text-sm text-slate-500">No assigned team members.</p>
+                <p className="text-sm text-slate-500 dark:text-ink-400">No assigned team members.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {projectMembers.data?.map((mem) => (
-                    <span key={mem.user_id} className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                    <span key={mem.user_id} className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-ink-800 dark:text-ink-200">
                       {mem.profiles?.full_name || mem.user_id}
                       {writable && (
                         <button
                           type="button"
-                          className="text-slate-400 hover:text-rose-600"
+                          className="text-slate-400 hover:text-rose-600 dark:text-ink-500 dark:hover:text-rose-400"
                           onClick={() => removeMember.mutate(mem.user_id)}
                         >
                           &times;
@@ -542,7 +546,7 @@ export function ProjectsPage() {
               {writable && (
                 <div className="space-y-2 pt-1">
                   {(addMember.error || removeMember.error) ? (
-                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+                    <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
                       {((addMember.error || removeMember.error) as Error).message || "Team member update failed"}
                     </div>
                   ) : null}

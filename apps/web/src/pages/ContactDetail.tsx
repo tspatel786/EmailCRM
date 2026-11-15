@@ -5,7 +5,7 @@ import { canAdmin, canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime, telHref } from "../lib/format";
-import { Badge, Button, Card, Confirm, Empty, Field, Input, PageHeader, Select, Spinner, Textarea } from "../components/ui";
+import { Badge, Button, Card, Confirm, Empty, Field, Input, PageHeader, Select, Spinner, TableSkeleton, TableWrap, Textarea } from "../components/ui";
 import { MemberSelect } from "./Companies";
 
 const tabs = [
@@ -263,7 +263,7 @@ export function ContactDetailPage() {
           ) : null
         }
       />
-      <div className="-mx-4 mb-5 overflow-x-auto border-b border-ink-200 px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Contact sections">
+      <div className="-mx-4 mb-5 overflow-x-auto border-b border-ink-200 px-4 dark:border-ink-800 sm:mx-0 sm:px-0" role="tablist" aria-label="Contact sections">
         <div className="flex min-w-max gap-1">
           {tabs.map((t) => (
             <button
@@ -272,7 +272,7 @@ export function ContactDetailPage() {
               role="tab"
               aria-selected={tab === t}
               className={`relative min-h-11 whitespace-nowrap px-3.5 text-sm font-medium transition-colors ${
-                tab === t ? "text-ink-900" : "text-ink-500 hover:text-ink-800"
+                tab === t ? "text-ink-900 dark:text-white" : "text-ink-500 hover:text-ink-800 dark:text-ink-400 dark:hover:text-ink-200"
               }`}
               onClick={() => setTab(t)}
             >
@@ -299,7 +299,7 @@ export function ContactDetailPage() {
                 "—"
               )}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-ink-400">
               Click-to-call opens the device dialer. It does not log duration or record the conversation. Log the call manually after you hang up.
             </p>
             <p>
@@ -318,16 +318,16 @@ export function ContactDetailPage() {
               <ol className="space-y-3">
                 {timeline.data.map((a) => (
                   <li key={a.id} className="border-l-2 border-primary-400 pl-3 text-sm">
-                    <div className="flex flex-wrap gap-2 text-slate-500">
+                    <div className="flex flex-wrap gap-2 text-slate-500 dark:text-ink-400">
                       <Badge tone="teal">{a.activity_type}</Badge>
                       <span>{fmtDateTime(a.occurred_at)}</span>
                       <span>{(a.profiles as { full_name?: string } | null)?.full_name || user?.email}</span>
                     </div>
                     <p className="mt-1">{a.summary}</p>
-                    {a.outcome ? <p className="text-slate-500">Outcome: {a.outcome}</p> : null}
+                    {a.outcome ? <p className="text-slate-500 dark:text-ink-400">Outcome: {a.outcome}</p> : null}
                     {a.next_follow_up_at ? <p>Next follow-up: {fmtDateTime(a.next_follow_up_at)}</p> : null}
                     {a.source_table ? (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-ink-500">
                         Linked {a.source_table} {a.source_id}
                       </p>
                     ) : null}
@@ -407,7 +407,7 @@ export function ContactDetailPage() {
         <Card className="space-y-2">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" />
           {addNote.error ? (
-            <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(addNote.error as Error).message || "Failed to save note"}
             </div>
           ) : null}
@@ -417,12 +417,12 @@ export function ContactDetailPage() {
         </Card>
       ) : null}
 
-      {tab === "Calls" ? <RelatedTable rows={rel?.calls ?? []} cols={["called_at", "direction", "outcome", "notes"]} /> : null}
-      {tab === "Emails" ? <RelatedTable rows={rel?.jobs ?? []} cols={["created_at", "subject", "status", "to_email"]} /> : null}
-      {tab === "Follow-ups" || tab === "Tasks" ? <RelatedTable rows={rel?.tasks ?? []} cols={["title", "due_at", "status", "kind"]} /> : null}
-      {tab === "Meetings" ? <RelatedTable rows={rel?.meetings ?? []} cols={["title", "starts_at", "status"]} /> : null}
-      {tab === "Quotations" ? <RelatedTable rows={rel?.quotes ?? []} cols={["title", "status", "total_amount"]} /> : null}
-      {tab === "Projects" ? <RelatedTable rows={rel?.projects ?? []} cols={["name", "status", "deadline"]} /> : null}
+      {tab === "Calls" ? <RelatedTable rows={rel?.calls ?? []} cols={["called_at", "direction", "outcome", "notes"]} loading={related.isLoading} /> : null}
+      {tab === "Emails" ? <RelatedTable rows={rel?.jobs ?? []} cols={["created_at", "subject", "status", "to_email"]} loading={related.isLoading} /> : null}
+      {tab === "Follow-ups" || tab === "Tasks" ? <RelatedTable rows={rel?.tasks ?? []} cols={["title", "due_at", "status", "kind"]} loading={related.isLoading} /> : null}
+      {tab === "Meetings" ? <RelatedTable rows={rel?.meetings ?? []} cols={["title", "starts_at", "status"]} loading={related.isLoading} /> : null}
+      {tab === "Quotations" ? <RelatedTable rows={rel?.quotes ?? []} cols={["title", "status", "total_amount"]} loading={related.isLoading} /> : null}
+      {tab === "Projects" ? <RelatedTable rows={rel?.projects ?? []} cols={["name", "status", "deadline"]} loading={related.isLoading} /> : null}
       {tab === "Attachments" ? (
         <div className="space-y-3">
           {writable ? (
@@ -434,7 +434,11 @@ export function ContactDetailPage() {
               }}
             />
           ) : null}
-          {rel?.docs.length ? (
+          {related.isLoading ? (
+            <Card>
+              <TableSkeleton rows={4} />
+            </Card>
+          ) : rel?.docs.length ? (
             <RelatedTable rows={rel.docs} cols={["file_name", "mime_type", "created_at"]} />
           ) : (
             <Empty title="No attachments" hint="PDF, Office, CSV, and images up to 20 MB." />
@@ -461,32 +465,41 @@ export function ContactDetailPage() {
   );
 }
 
-function RelatedTable({ rows, cols }: { rows: Array<Record<string, unknown>>; cols: string[] }) {
+function RelatedTable({ rows, cols, loading }: { rows: Array<Record<string, unknown>>; cols: string[]; loading?: boolean }) {
+  if (loading) {
+    return (
+      <Card>
+        <TableSkeleton rows={4} />
+      </Card>
+    );
+  }
   if (!rows.length) return <Empty title="No records" />;
   return (
     <Card>
-      <div className="table-scroll"><table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-slate-500">
-            {cols.map((c) => (
-              <th key={c} className="py-2">
-                {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={String(r.id ?? i)} className="border-t">
+      <TableWrap>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-slate-500">
               {cols.map((c) => (
-                <td key={c} className="py-2">
-                  {String(r[c] ?? "—")}
-                </td>
+                <th key={c} className="py-2">
+                  {c}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table></div>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={String(r.id ?? i)} className="border-t">
+                {cols.map((c) => (
+                  <td key={c} className="py-2">
+                    {String(r[c] ?? "—")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableWrap>
     </Card>
   );
 }

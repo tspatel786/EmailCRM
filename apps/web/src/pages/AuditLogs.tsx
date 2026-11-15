@@ -3,7 +3,7 @@ import { canAdmin } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
-import { Card, Empty, PageHeader } from "../components/ui";
+import { Card, Empty, ErrorBox, PageHeader, Spinner } from "../components/ui";
 import { ScrollText as ScrollTextIcon } from "lucide-react";
 
 export function AuditLogsPage() {
@@ -21,7 +21,11 @@ export function AuditLogsPage() {
   return (
     <div>
       <PageHeader title="Audit logs" icon={<ScrollTextIcon size={20} />} subtitle="Security-sensitive actions. Email bodies and passwords are never stored here." />
-      {!logs.data?.length ? (
+      {logs.isLoading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : logs.error ? (
+        <ErrorBox message={(logs.error as Error).message || "Failed to load audit logs"} />
+      ) : !logs.data?.length ? (
         <Empty title="No audit events" />
       ) : (
         <Card>

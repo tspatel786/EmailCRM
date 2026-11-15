@@ -108,7 +108,7 @@ export function CampaignsPage() {
           <div className="table-scroll">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200 pb-2">
+                <tr className="text-left text-slate-500 border-b border-slate-200 pb-2 dark:text-ink-400 dark:border-ink-800">
                   <th className="py-2.5">Name</th>
                   <th>Status</th>
                   <th>Scheduled Send (नियोजित वेळ)</th>
@@ -119,23 +119,23 @@ export function CampaignsPage() {
               </thead>
               <tbody>
                 {list.data.map((c) => (
-                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50/60 transition">
+                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50/60 transition dark:border-ink-800 dark:hover:bg-ink-800/60">
                     <td className="py-3 font-medium">
-                      <Link className="text-amber-600 hover:text-amber-700 hover:underline font-semibold" to={`/app/campaigns/${c.id}`}>
+                      <Link className="text-amber-600 hover:text-amber-700 hover:underline font-semibold dark:text-primary-400 dark:hover:text-primary-300" to={`/app/campaigns/${c.id}`}>
                         {c.name}
                       </Link>
                     </td>
                     <td>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        c.status === "scheduled" ? "bg-amber-100 text-amber-800 border border-amber-300" :
-                        c.status === "sending" || c.status === "queued" ? "bg-blue-100 text-blue-800 border border-blue-200" :
-                        c.status === "completed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
-                        "bg-slate-100 text-slate-700"
+                        c.status === "scheduled" ? "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30" :
+                        c.status === "sending" || c.status === "queued" ? "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30" :
+                        c.status === "completed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30" :
+                        "bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-ink-200"
                       }`}>
                         {c.status}
                       </span>
                     </td>
-                    <td className="text-xs text-slate-600 font-medium">
+                    <td className="text-xs text-slate-600 font-medium dark:text-ink-300">
                       {c.scheduled_at ? `📅 ${new Date(c.scheduled_at).toLocaleString()}` : "⚡ Immediate (लगेच)"}
                     </td>
                     <td>{c.queued_count}</td>
@@ -157,13 +157,13 @@ export function CampaignsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to create campaign"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -210,16 +210,16 @@ export function CampaignsPage() {
           </Field>
 
           {/* Schedule Date & Time section */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2 dark:border-amber-500/30 dark:bg-amber-500/10">
             <Field label="Schedule Delivery Date & Time (मेल कधी पाठवायचा - तारीख व वेळ)" error={form.formState.errors.scheduled_at?.message}>
               <Input type="datetime-local" {...form.register("scheduled_at")} />
             </Field>
-            <p className="text-[11px] text-amber-800 leading-relaxed">
+            <p className="text-[11px] text-amber-800 leading-relaxed dark:text-amber-300">
               💡 <strong>टीप:</strong> जर तुम्हाला मेल लगेच पाठवायचा असेल तर तारीख-वेळ रिकामी ठेवा (Immediate). जर भविष्यात विशिष्ट दिवशी व वेळी आपोआप पाठवायचा असेल तर वरील तारीख व वेळ निवडा.
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-700">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-ink-300">
             <input type="checkbox" {...form.register("requires_consent")} /> Require granted consent
           </label>
           <Button type="submit" disabled={create.isPending} className="w-full">
@@ -332,17 +332,17 @@ export function CampaignDetailPage() {
 
       {/* Prominent Scheduling Information Banner */}
       {c.scheduled_at && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 p-4 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm">
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 p-4 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <div className="flex items-center gap-2.5">
             <span className="text-xl">⏰</span>
             <div>
               <div className="font-bold text-sm">Scheduled Email Campaign (नियोजित मोहीम)</div>
-              <div className="text-xs text-amber-900 mt-0.5">
+              <div className="text-xs text-amber-900 mt-0.5 dark:text-amber-300">
                 Automatically scheduled to dispatch on: <strong>{new Date(c.scheduled_at).toLocaleString()}</strong>
               </div>
             </div>
           </div>
-          <span className="rounded-full bg-amber-200/90 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs">
+          <span className="rounded-full bg-amber-200/90 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300">
             {new Date(c.scheduled_at) > new Date() ? "⏳ Awaiting Scheduled Time" : "✅ Dispatched"}
           </span>
         </div>
@@ -355,7 +355,7 @@ export function CampaignDetailPage() {
           ["Failed", c.failed_count],
         ].map(([l, v]) => (
           <Card key={String(l)}>
-            <p className="text-xs text-slate-500">{l}</p>
+            <p className="text-xs text-slate-500 dark:text-ink-400">{l}</p>
             <p className="text-xl font-semibold">{v}</p>
           </Card>
         ))}
@@ -363,7 +363,7 @@ export function CampaignDetailPage() {
       <Card>
         <div className="table-scroll"><table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-slate-500">
+            <tr className="text-left text-slate-500 dark:text-ink-400">
               <th className="py-2">To</th>
               <th>Status</th>
               <th>Attempts</th>

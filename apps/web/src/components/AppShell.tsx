@@ -26,11 +26,14 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  Sun,
+  Moon,
   type LucideIcon,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useSession } from "../lib/session";
+import { useTheme } from "../lib/theme";
 import { supabase } from "../lib/supabase";
 import { cn } from "./ui";
 
@@ -123,6 +126,7 @@ function readCollapsed(): boolean {
 
 export function AppShell() {
   const { user, org, memberships, setOrgId } = useSession();
+  const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient(); // M3: needed to invalidate after mark-read
@@ -308,9 +312,9 @@ export function AppShell() {
 
       {/* ------------------------------ Main column ------------------------------ */}
       <div className={cn("flex min-h-screen min-w-0 flex-col transition-[padding] duration-200 lg:pl-[var(--sidebar-width)]", isCollapsed && "lg:pl-[var(--sidebar-collapsed)]")}>
-        <header className="sticky top-0 z-20 flex h-[var(--topbar-height)] shrink-0 items-center gap-2 border-b border-ink-200/80 bg-white/90 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-[var(--topbar-height)] shrink-0 items-center gap-2 border-b border-ink-200/80 bg-white/90 px-3 backdrop-blur-md dark:border-ink-800/80 dark:bg-ink-950/90 sm:gap-3 sm:px-6">
           <button
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100 lg:hidden"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800 lg:hidden"
             onClick={() => setOpen(true)}
             aria-label="Open menu"
           >
@@ -322,24 +326,24 @@ export function AppShell() {
             <ol className="hidden items-center gap-1.5 text-sm md:flex">
               {crumbs.map((c, i) => (
                 <li key={i} className="flex min-w-0 items-center gap-1.5">
-                  {i > 0 ? <ChevronRight size={14} className="shrink-0 text-ink-300" /> : null}
+                  {i > 0 ? <ChevronRight size={14} className="shrink-0 text-ink-300 dark:text-ink-600" /> : null}
                   {c.to ? (
-                    <Link to={c.to} className="truncate text-ink-500 transition hover:text-ink-900">
+                    <Link to={c.to} className="truncate text-ink-500 transition hover:text-ink-900 dark:text-ink-400 dark:hover:text-white">
                       {c.label}
                     </Link>
                   ) : (
-                    <span className="truncate font-semibold text-ink-900">{c.label}</span>
+                    <span className="truncate font-semibold text-ink-900 dark:text-white">{c.label}</span>
                   )}
                 </li>
               ))}
             </ol>
-            <span className="block truncate text-sm font-semibold text-ink-900 md:hidden">{crumbs[crumbs.length - 1]?.label}</span>
+            <span className="block truncate text-sm font-semibold text-ink-900 dark:text-white md:hidden">{crumbs[crumbs.length - 1]?.label}</span>
           </nav>
 
           {/* Organization switcher */}
           {memberships.length > 1 ? (
             <select
-              className="select-chevron hidden min-h-9 max-w-[200px] cursor-pointer appearance-none truncate rounded-lg border border-ink-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-ink-800 hover:border-ink-300 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/15 sm:block"
+              className="select-chevron hidden min-h-9 max-w-[200px] cursor-pointer appearance-none truncate rounded-lg border border-ink-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-ink-800 hover:border-ink-300 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/15 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:border-ink-600 sm:block"
               value={org?.organization_id}
               onChange={(e) => setOrgId(e.target.value)}
               aria-label="Switch organization"
@@ -351,9 +355,9 @@ export function AppShell() {
               ))}
             </select>
           ) : (
-            <div className="hidden items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-1.5 xl:flex">
-              <Building2 size={14} className="text-ink-400" />
-              <span className="max-w-[180px] truncate text-sm font-medium text-ink-800">{org?.organizations.name}</span>
+            <div className="hidden items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-1.5 dark:border-ink-700 dark:bg-ink-800 xl:flex">
+              <Building2 size={14} className="text-ink-400 dark:text-ink-500" />
+              <span className="max-w-[180px] truncate text-sm font-medium text-ink-800 dark:text-ink-200">{org?.organizations.name}</span>
             </div>
           )}
 
@@ -361,15 +365,25 @@ export function AppShell() {
             href="https://smpatelithub.in"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-ink-600 transition hover:bg-ink-100 hover:text-ink-900 2xl:inline-flex"
+            className="hidden min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-ink-600 transition hover:bg-ink-100 hover:text-ink-900 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-white 2xl:inline-flex"
           >
-            <ExternalLink size={13} className="text-primary-600" /> smpatelithub.in
+            <ExternalLink size={13} className="text-primary-600 dark:text-primary-400" /> smpatelithub.in
           </a>
+
+          {/* Theme toggle */}
+          <button
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-600 transition hover:bg-ink-100 hover:text-ink-900 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-white"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
 
           {/* Notifications */}
           <div className="relative" ref={notesRef}>
             <button
-              className={cn("relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 transition hover:bg-ink-100 hover:text-ink-900", notesOpen && "bg-ink-100 text-ink-900")}
+              className={cn("relative flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 transition hover:bg-ink-100 hover:text-ink-900 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-white", notesOpen && "bg-ink-100 text-ink-900 dark:bg-ink-800 dark:text-white")}
               aria-label={unread ? `Notifications (${unread} unread)` : "Notifications"}
               aria-expanded={notesOpen}
               onClick={async () => {
@@ -383,34 +397,34 @@ export function AppShell() {
             >
               <Bell size={19} />
               {unread ? (
-                <span className="absolute right-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                <span className="absolute right-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-ink-950">
                   {unread > 99 ? "99+" : unread}
                 </span>
               ) : null}
             </button>
             {notesOpen ? (
-              <div className="fixed inset-x-3 top-[calc(var(--topbar-height)+0.5rem)] z-50 animate-scale-in overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
-                <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-ink-900">Notifications</p>
+              <div className="fixed inset-x-3 top-[calc(var(--topbar-height)+0.5rem)] z-50 animate-scale-in overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop dark:border-ink-800 dark:bg-ink-900 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
+                <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3 dark:border-ink-800">
+                  <p className="text-sm font-semibold text-ink-900 dark:text-white">Notifications</p>
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto p-1.5">
                   {!notes.data?.length ? (
                     <div className="flex flex-col items-center px-3 py-8 text-center">
-                      <Bell size={20} className="mb-2 text-ink-300" />
-                      <p className="text-xs text-ink-500">No new notifications</p>
+                      <Bell size={20} className="mb-2 text-ink-300 dark:text-ink-600" />
+                      <p className="text-xs text-ink-500 dark:text-ink-400">No new notifications</p>
                     </div>
                   ) : (
                     notes.data.map((n) => (
                       <button
                         key={n.id}
-                        className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-ink-50"
+                        className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-ink-50 dark:hover:bg-ink-800"
                         onClick={() => {
                           setNotesOpen(false);
                           if (n.link_path) navigate(n.link_path);
                         }}
                       >
-                        <span className="block text-sm font-medium text-ink-900">{n.title}</span>
-                        <span className="mt-0.5 block text-xs text-ink-500">{n.body}</span>
+                        <span className="block text-sm font-medium text-ink-900 dark:text-white">{n.title}</span>
+                        <span className="mt-0.5 block text-xs text-ink-500 dark:text-ink-400">{n.body}</span>
                       </button>
                     ))
                   )}
@@ -422,7 +436,7 @@ export function AppShell() {
           {/* User menu */}
           <div className="relative" ref={userRef}>
             <button
-              className={cn("flex min-h-10 items-center gap-2 rounded-lg py-1 pl-1 pr-1 transition hover:bg-ink-100 sm:pr-2", userOpen && "bg-ink-100")}
+              className={cn("flex min-h-10 items-center gap-2 rounded-lg py-1 pl-1 pr-1 transition hover:bg-ink-100 dark:hover:bg-ink-800 sm:pr-2", userOpen && "bg-ink-100 dark:bg-ink-800")}
               onClick={() => {
                 setUserOpen((v) => !v);
                 setNotesOpen(false);
@@ -430,31 +444,31 @@ export function AppShell() {
               aria-expanded={userOpen}
               aria-label="Account menu"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-xs font-bold text-ink-950 ring-2 ring-white">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-xs font-bold text-ink-950 ring-2 ring-white dark:ring-ink-950">
                 {initials}
               </span>
               <span className="hidden max-w-[160px] text-left lg:block">
-                <span className="block truncate text-xs font-semibold text-ink-900">{user?.email}</span>
-                <span className="block text-2xs capitalize text-ink-500">{org?.role?.replace(/_/g, " ")}</span>
+                <span className="block truncate text-xs font-semibold text-ink-900 dark:text-white">{user?.email}</span>
+                <span className="block text-2xs capitalize text-ink-500 dark:text-ink-400">{org?.role?.replace(/_/g, " ")}</span>
               </span>
-              <ChevronDown size={14} className="hidden text-ink-400 lg:block" />
+              <ChevronDown size={14} className="hidden text-ink-400 dark:text-ink-600 lg:block" />
             </button>
             {userOpen ? (
-              <div className="absolute right-0 z-50 mt-2 w-64 animate-scale-in overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop">
-                <div className="border-b border-ink-100 px-4 py-3">
-                  <p className="truncate text-sm font-semibold text-ink-900">{user?.email}</p>
-                  <p className="mt-0.5 truncate text-xs text-ink-500">{org?.organizations.name}</p>
+              <div className="absolute right-0 z-50 mt-2 w-64 animate-scale-in overflow-hidden rounded-xl border border-ink-200 bg-white shadow-pop dark:border-ink-800 dark:bg-ink-900">
+                <div className="border-b border-ink-100 px-4 py-3 dark:border-ink-800">
+                  <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{user?.email}</p>
+                  <p className="mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400">{org?.organizations.name}</p>
                   {org?.role ? (
-                    <span className="mt-2 inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-2xs font-semibold capitalize text-primary-800 ring-1 ring-inset ring-primary-200">
+                    <span className="mt-2 inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-2xs font-semibold capitalize text-primary-800 ring-1 ring-inset ring-primary-200 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20">
                       {org.role.replace(/_/g, " ")}
                     </span>
                   ) : null}
                 </div>
                 {memberships.length > 1 ? (
-                  <div className="border-b border-ink-100 p-3 sm:hidden">
-                    <label className="mb-1 block text-2xs font-semibold uppercase tracking-wide text-ink-500">Organization</label>
+                  <div className="border-b border-ink-100 p-3 dark:border-ink-800 sm:hidden">
+                    <label className="mb-1 block text-2xs font-semibold uppercase tracking-wide text-ink-500 dark:text-ink-400">Organization</label>
                     <select
-                      className="select-chevron min-h-10 w-full appearance-none rounded-lg border border-ink-200 bg-white py-2 pl-3 pr-8 text-sm text-ink-800"
+                      className="select-chevron min-h-10 w-full appearance-none rounded-lg border border-ink-200 bg-white py-2 pl-3 pr-8 text-sm text-ink-800 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200"
                       value={org?.organization_id}
                       onChange={(e) => setOrgId(e.target.value)}
                     >
@@ -470,13 +484,13 @@ export function AppShell() {
                   <Link
                     to="/app/settings"
                     onClick={() => setUserOpen(false)}
-                    className="flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm text-ink-700 transition hover:bg-ink-50"
+                    className="flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm text-ink-700 transition hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800"
                   >
-                    <Settings size={16} className="text-ink-400" /> Settings
+                    <Settings size={16} className="text-ink-400 dark:text-ink-500" /> Settings
                   </Link>
                   <button
                     onClick={logout}
-                    className="flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                    className="flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
                   >
                     <LogOut size={16} /> Logout
                   </button>

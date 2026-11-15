@@ -259,7 +259,7 @@ export function DashboardPage() {
               <Input type="date" aria-label="To date" className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
             {isAdmin ? (
-              <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-ink-200 bg-white px-3 text-sm font-medium text-ink-700 shadow-sm transition hover:border-ink-300">
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-ink-200 bg-white px-3 text-sm font-medium text-ink-700 shadow-sm transition hover:border-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:border-ink-600">
                 <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={myDataOnly} onChange={(e) => setMyDataOnly(e.target.checked)} />
                 My data only
               </label>
@@ -378,7 +378,7 @@ export function DashboardPage() {
                   <tbody>
                     {query.data.people.map((p) => (
                       <tr key={p.name}>
-                        <td className="font-medium text-ink-900">{p.name}</td>
+                        <td className="font-medium text-ink-900 dark:text-white">{p.name}</td>
                         <td className="text-right tabular-nums">{p.calls}</td>
                       </tr>
                     ))}

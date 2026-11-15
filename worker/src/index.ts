@@ -3,7 +3,7 @@ import { startHealthServer, type HealthState } from "./health.js";
 import { claimJobs, heartbeat, processJob, reclaimExpiredLeases } from "./process-jobs.js";
 import { activateScheduledCampaigns, processDueReminders } from "./reminders.js";
 import { processDemoEmails } from "./demo-emails.js";
-import { processOutboundMessages } from "./outbound-messages.js";
+import { processOutboundMessages, reclaimExpiredOutboundLeases } from "./outbound-messages.js";
 
 assertWorkerSecrets();
 
@@ -61,6 +61,7 @@ async function loop(): Promise<void> {
     try {
       state.lastLoopAt = new Date().toISOString();
       await runStep("reclaimExpiredLeases", reclaimExpiredLeases);
+      await runStep("reclaimExpiredOutboundLeases", reclaimExpiredOutboundLeases);
       await runStep("activateScheduledCampaigns", activateScheduledCampaigns);
       await runStep("processDueReminders", processDueReminders);
       await runStep("processDemoEmails", processDemoEmails);

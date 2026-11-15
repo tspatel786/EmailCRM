@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime, telHref } from "../lib/format";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea, SearchInput } from "../components/ui";
 import { Phone as PhoneIcon } from "lucide-react";
 import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
@@ -256,9 +256,9 @@ export function CallsPage() {
         }
       />
       {missed.data?.length ? (
-        <Card className="mb-4 border-amber-300 bg-amber-50">
-          <p className="font-medium text-amber-900">Missed call follow-ups</p>
-          <ul className="mt-1 text-sm text-amber-800">
+        <Card className="mb-4 border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p className="font-medium text-amber-900 dark:text-amber-300">Missed call follow-ups</p>
+          <ul className="mt-1 text-sm text-amber-800 dark:text-amber-300">
             {missed.data.map((m) => (
               <li key={m.id}>
                 {(m.contacts as { full_name?: string } | null)?.full_name} · {fmtDateTime(m.follow_up_at)}
@@ -268,7 +268,7 @@ export function CallsPage() {
         </Card>
       ) : null}
       <div className="crm-toolbar mb-4">
-        <div className="flex flex-wrap gap-1 rounded-control border border-ink-200 bg-white p-1 shadow-sm" role="group" aria-label="Call view">
+        <div className="flex flex-wrap gap-1 rounded-control border border-ink-200 bg-white p-1 shadow-sm dark:border-ink-700 dark:bg-ink-900" role="group" aria-label="Call view">
           {(["all", "today", "callback"] as const).map((v) => (
             <Button key={v} size="sm" variant={view === v ? "primary" : "ghost"} className="capitalize" onClick={() => { setView(v); setPage(1); }}>
               {v}
@@ -288,13 +288,17 @@ export function CallsPage() {
         />
       </div>
 
-      {!pageCalls.length ? (
+      {list.isLoading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : list.error ? (
+        <ErrorBox message={(list.error as Error).message || "Failed to load calls"} />
+      ) : !pageCalls.length ? (
         <Empty title="No calls found" hint={search ? "Try adjusting your search or filters" : "Log a call to start tracking customer calls."} />
       ) : (
         <Card>
           <div className="table-scroll"><table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-slate-500 dark:text-ink-400">
                 <th className="py-2">When</th>
                 <th>Contact</th>
                 <th>Dir</th>
@@ -328,7 +332,7 @@ export function CallsPage() {
                         "—"
                       )}
                     </td>
-                    <td className="max-w-xs truncate text-slate-600">
+                    <td className="max-w-xs truncate text-slate-600 dark:text-ink-300">
                       {c.next_action ? `Next: ${c.next_action}` : c.notes ?? "—"}
                     </td>
                     {writable ? (
@@ -346,7 +350,7 @@ export function CallsPage() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-slate-500">
+              <span className="text-slate-500 dark:text-ink-400">
                 Page {page} of {totalPages} ({filteredCalls.length} calls)
               </span>
               <div className="flex gap-2">
@@ -372,13 +376,13 @@ export function CallsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to log call"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -485,7 +489,7 @@ export function CallsPage() {
               </Button>
             </div>
             {update.error ? (
-              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
                 {(update.error as Error).message || "Failed to update call"}
               </div>
             ) : null}

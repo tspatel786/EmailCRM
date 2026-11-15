@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CONTACT_FIELDS, guessColumnMap, rowToContact, type ContactField } from "@crm/shared";
 import { canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { parseCsv, parseWorkbook } from "../lib/export";
-import { Button, Card, Empty, PageHeader, Select } from "../components/ui";
+import { Button, Card, Empty, PageHeader, Select, TableSkeleton, TableWrap } from "../components/ui";
 import { FileSpreadsheet as FileSpreadsheetIcon } from "lucide-react";
 
 export function ImportExcelPage() {
@@ -20,6 +20,7 @@ export function ImportExcelPage() {
   const [sourceKind, setSourceKind] = useState<"xlsx" | "csv">("xlsx");
   const [grantConsent, setGrantConsent] = useState(true);
   const [preview, setPreview] = useState<Array<{ row: number; ok: boolean; error?: string; email?: string }>>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const history = useQuery({
     queryKey: ["imports", org?.organization_id],
@@ -197,29 +198,30 @@ export function ImportExcelPage() {
       />
 
       {/* Quota Banner */}
-      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm">
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
         <div className="flex items-center gap-2.5">
           <span className="text-xl">🎯</span>
           <div>
             <div className="font-bold text-sm">Daily Auto-Send Limit: Fixed 90 Emails / Day (दररोज ९० ईमेल)</div>
-            <div className="text-xs text-amber-900 mt-0.5">
+            <div className="text-xs text-amber-900 mt-0.5 dark:text-amber-300">
               तुम्ही एकदाच ५०० किंवा १,००० कॉन्टॅक्ट्सची एक्सेल फाईल अपलोड करू शकता. सिस्टीम दररोज बरोबर ९० ईमेल पाठवेल आणि उर्वरित आपोआप पुढच्या दिवशी पाठवले जातील.
             </div>
           </div>
         </div>
-        <span className="rounded-full bg-amber-200 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs">
+        <span className="rounded-full bg-amber-200 border border-amber-300 px-3 py-1 font-bold text-amber-900 text-xs dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300">
           Active Limit: 90 / Day
         </span>
       </div>
 
       <Card className="space-y-4">
         {fileError && (
-          <div className="rounded-lg bg-rose-50 p-3 text-xs font-medium text-rose-700 border border-rose-200">
+          <div className="rounded-lg bg-rose-50 p-3 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
             {fileError}
           </div>
         )}
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center dark:border-ink-700 dark:bg-ink-800/40">
           <input
+            ref={fileInputRef}
             type="file"
             id="excel-file-input"
             accept=".xlsx,.xls,.csv"
@@ -229,44 +231,43 @@ export function ImportExcelPage() {
               if (f) void onFile(f).catch((err: Error) => setFileError(err.message));
             }}
           />
-          <label
-            htmlFor="excel-file-input"
-            className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 text-sm shadow-sm transition"
-          >
-            📁 Choose Excel File (.xlsx / .csv)
-          </label>
-          {fileName && <p className="mt-2 text-xs font-semibold text-slate-700">Selected: {fileName} ({rows.length} rows detected)</p>}
+          <Button type="button" onClick={() => fileInputRef.current?.click()}>
+            Choose Excel File (.xlsx / .csv)
+          </Button>
+          {fileName && <p className="mt-2 text-xs font-semibold text-slate-700 dark:text-ink-200">Selected: {fileName} ({rows.length} rows detected)</p>}
         </div>
 
         {headers.length ? (
           <div className="overflow-auto space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Map Columns to Contact Fields:</h3>
-            <div className="table-scroll"><table className="w-full text-sm">
-              <thead>
-                <tr>
-                  {headers.map((h) => (
-                    <th key={h} className="p-2 text-left bg-slate-50 rounded-lg">
-                      <div className="text-xs font-semibold text-slate-700 mb-1">{h}</div>
-                      <Select
-                        value={map[h] ?? "skip"}
-                        onChange={(e) => setMap((m) => ({ ...m, [h]: e.target.value as ContactField | "skip" }))}
-                      >
-                        <option value="skip">skip</option>
-                        {CONTACT_FIELDS.map((f) => (
-                          <option key={f} value={f}>
-                            {f}
-                          </option>
-                        ))}
-                      </Select>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-            </table></div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-ink-200">Map Columns to Contact Fields:</h3>
+            <TableWrap>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    {headers.map((h) => (
+                      <th key={h} className="p-2 text-left bg-slate-50 rounded-lg dark:bg-ink-800">
+                        <div className="text-xs font-semibold text-slate-700 mb-1 dark:text-ink-200">{h}</div>
+                        <Select
+                          value={map[h] ?? "skip"}
+                          onChange={(e) => setMap((m) => ({ ...m, [h]: e.target.value as ContactField | "skip" }))}
+                        >
+                          <option value="skip">skip</option>
+                          {CONTACT_FIELDS.map((f) => (
+                            <option key={f} value={f}>
+                              {f}
+                            </option>
+                          ))}
+                        </Select>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              </table>
+            </TableWrap>
 
             {/* Consent Checkbox */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-1">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-1 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer dark:text-white">
                 <input
                   type="checkbox"
                   checked={grantConsent}
@@ -275,7 +276,7 @@ export function ImportExcelPage() {
                 />
                 Mark all imported contacts as eligible for email campaigns (ईमेल मोहिमेसाठी संमती द्या - Granted)
               </label>
-              <p className="text-[11px] text-amber-800/90 pl-5">
+              <p className="text-[11px] text-amber-800/90 pl-5 dark:text-amber-300">
                 💡 हे ऑन ठेवल्याने एक्सेल फाईलमधील सर्व कॉन्टॅक्ट्सना कॅम्पेनद्वारे दररोज ९० ईमेल आपोआप पाठवले जातील.
               </p>
             </div>
@@ -307,36 +308,42 @@ export function ImportExcelPage() {
             </ul>
           </div>
         ) : null}
-        {importMut.isSuccess ? <div className="rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-800 border border-emerald-200">Import finished successfully. See batch history below.</div> : null}
-        {importMut.error ? <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">{(importMut.error as Error).message}</div> : null}
+        {importMut.isSuccess ? <div className="rounded-lg bg-emerald-50 p-2.5 text-xs font-medium text-emerald-800 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30">Import finished successfully. See batch history below.</div> : null}
+        {importMut.error ? <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">{(importMut.error as Error).message}</div> : null}
       </Card>
       <h2 className="mt-8 mb-2 font-medium">Batch history</h2>
-      {!history.data?.length ? (
+      {history.isLoading ? (
+        <Card>
+          <TableSkeleton rows={4} />
+        </Card>
+      ) : !history.data?.length ? (
         <Empty title="No imports yet" />
       ) : (
         <Card>
-          <div className="table-scroll"><table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="py-2">File</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Updated</th>
-                <th>Errors</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.data.map((b) => (
-                <tr key={b.id} className="border-t">
-                  <td className="py-2">{b.file_name}</td>
-                  <td>{b.status}</td>
-                  <td>{b.created_count}</td>
-                  <td>{b.updated_count}</td>
-                  <td>{b.error_rows}</td>
+          <TableWrap>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 dark:text-ink-400">
+                  <th className="py-2">File</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                  <th>Errors</th>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+              </thead>
+              <tbody>
+                {history.data.map((b) => (
+                  <tr key={b.id} className="border-t">
+                    <td className="py-2">{b.file_name}</td>
+                    <td>{b.status}</td>
+                    <td>{b.created_count}</td>
+                    <td>{b.updated_count}</td>
+                    <td>{b.error_rows}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
         </Card>
       )}
     </div>

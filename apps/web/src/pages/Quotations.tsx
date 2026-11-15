@@ -9,7 +9,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money, fmtDateTime } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea, Toolbar, SearchInput } from "../components/ui";
 import { Receipt as ReceiptIcon } from "lucide-react";
 import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
@@ -375,12 +375,16 @@ export function QuotationsPage() {
       </Toolbar>
 
       {approve.error ? (
-        <div className="mb-4 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+        <div className="mb-4 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {(approve.error as Error).message || "Failed to approve quotation"}
         </div>
       ) : null}
 
-      {!pageQuotes.length ? (
+      {list.isLoading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : list.error ? (
+        <ErrorBox message={(list.error as Error).message || "Failed to load quotations"} />
+      ) : !pageQuotes.length ? (
         <Empty title="No quotations found" hint={search ? "Try adjusting your search" : "Create a quotation to send estimates to clients."} />
       ) : (
         <Card>
@@ -428,7 +432,7 @@ export function QuotationsPage() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-slate-500">
+              <span className="text-slate-500 dark:text-ink-400">
                 Page {page} of {totalPages} ({filtered.length} quotations)
               </span>
               <div className="flex gap-2">
@@ -454,13 +458,13 @@ export function QuotationsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
               {(create.error as Error).message || "Failed to save quotation"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -472,12 +476,12 @@ export function QuotationsPage() {
           {/* Line items table */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">Line Items</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-ink-200">Line Items</span>
               <Button type="button" variant="ghost" onClick={addItem} className="text-xs">
                 + Add item
               </Button>
             </div>
-            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-ink-700 dark:bg-ink-800/40">
               {lineItems.map((item, idx) => (
                 <div key={item.id} className="flex items-center gap-2">
                   <Input
@@ -506,13 +510,13 @@ export function QuotationsPage() {
                     className="w-24 text-xs"
                     required
                   />
-                  <span className="w-20 text-right text-xs font-medium text-slate-700">
+                  <span className="w-20 text-right text-xs font-medium text-slate-700 dark:text-ink-200">
                     {money((Number(item.quantity) || 0) * (Number(item.unit_price) || 0), form.watch("currency") || "INR")}
                   </span>
                   {lineItems.length > 1 && (
                     <button
                       type="button"
-                      className="text-slate-400 hover:text-rose-600"
+                      className="text-slate-400 hover:text-rose-600 dark:text-ink-500 dark:hover:text-rose-400"
                       onClick={() => removeItem(idx)}
                     >
                       &times;
@@ -520,7 +524,7 @@ export function QuotationsPage() {
                   )}
                 </div>
               ))}
-              <div className="flex justify-end pt-2 text-sm font-semibold text-slate-900 border-t border-slate-200">
+              <div className="flex justify-end pt-2 text-sm font-semibold text-slate-900 border-t border-slate-200 dark:text-white dark:border-ink-700">
                 Total: {money(calculateTotal(lineItems), form.watch("currency") || "INR")}
               </div>
             </div>
@@ -544,21 +548,21 @@ export function QuotationsPage() {
       <Modal size="lg" open={Boolean(versionModalQuote)} title={`Version History: ${versionModalQuote?.title}`} onClose={() => setVersionModalQuote(null)}>
         <div className="space-y-4">
           {versions.data?.length === 0 ? (
-            <p className="text-sm text-slate-500">No versions recorded.</p>
+            <p className="text-sm text-slate-500 dark:text-ink-400">No versions recorded.</p>
           ) : (
             <div className="space-y-3">
               {versions.data?.map((v) => (
-                <div key={v.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="font-semibold text-slate-800">Version {v.version_number}</span>
-                    <span className="text-xs text-slate-500">{fmtDateTime(v.created_at)}</span>
+                <div key={v.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-ink-700 dark:bg-ink-800/40">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-ink-700">
+                    <span className="font-semibold text-slate-800 dark:text-ink-100">Version {v.version_number}</span>
+                    <span className="text-xs text-slate-500 dark:text-ink-400">{fmtDateTime(v.created_at)}</span>
                   </div>
                   <div className="mt-2 text-sm">
-                    <p className="font-medium text-slate-700">Total: {money(Number(v.total_amount), versionModalQuote?.currency || "INR")}</p>
+                    <p className="font-medium text-slate-700 dark:text-ink-200">Total: {money(Number(v.total_amount), versionModalQuote?.currency || "INR")}</p>
                     {Array.isArray(v.line_items) && v.line_items.length > 0 && (
                       <div className="mt-2">
-                        <span className="text-xs font-medium text-slate-500">Line Items:</span>
-                        <ul className="mt-1 space-y-1 text-xs text-slate-600">
+                        <span className="text-xs font-medium text-slate-500 dark:text-ink-400">Line Items:</span>
+                        <ul className="mt-1 space-y-1 text-xs text-slate-600 dark:text-ink-300">
                           {v.line_items.map((li, idx) => (
                             <li key={idx} className="flex justify-between">
                               <span>{li.description} (x{li.quantity})</span>
@@ -582,7 +586,7 @@ export function QuotationsPage() {
           <div className="space-y-4">
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700">Line Items for New Revision</span>
+                <span className="text-sm font-medium text-slate-700 dark:text-ink-200">Line Items for New Revision</span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -592,7 +596,7 @@ export function QuotationsPage() {
                   + Add item
                 </Button>
               </div>
-              <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-ink-700 dark:bg-ink-800/40">
                 {editLineItems.map((item, idx) => (
                   <div key={item.id} className="flex items-center gap-2">
                     <Input
@@ -618,13 +622,13 @@ export function QuotationsPage() {
                       onChange={(e) => updateEditItem(idx, "unit_price", Number(e.target.value))}
                       className="w-24 text-xs"
                     />
-                    <span className="w-20 text-right text-xs font-medium text-slate-700">
+                    <span className="w-20 text-right text-xs font-medium text-slate-700 dark:text-ink-200">
                       {money((Number(item.quantity) || 0) * (Number(item.unit_price) || 0), newVersionModalQuote.currency)}
                     </span>
                     {editLineItems.length > 1 && (
                       <button
                         type="button"
-                        className="text-slate-400 hover:text-rose-600"
+                        className="text-slate-400 hover:text-rose-600 dark:text-ink-500 dark:hover:text-rose-400"
                         onClick={() => setEditLineItems(editLineItems.filter((_, i) => i !== idx))}
                       >
                         &times;
@@ -632,7 +636,7 @@ export function QuotationsPage() {
                     )}
                   </div>
                 ))}
-                <div className="flex justify-end pt-2 text-sm font-semibold text-slate-900 border-t border-slate-200">
+                <div className="flex justify-end pt-2 text-sm font-semibold text-slate-900 border-t border-slate-200 dark:text-white dark:border-ink-700">
                   New Total: {money(calculateTotal(editLineItems), newVersionModalQuote.currency)}
                 </div>
               </div>
@@ -643,7 +647,7 @@ export function QuotationsPage() {
             </Field>
 
             {createNewVersion.error ? (
-              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+              <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                 {(createNewVersion.error as Error).message || "Failed to create revision"}
               </div>
             ) : null}

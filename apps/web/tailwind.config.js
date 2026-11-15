@@ -2,6 +2,7 @@
 // Design tokens for the CRM. Brand identity (amber accent on deep ink) is preserved;
 // these tokens standardize color, radius, shadow and type scale across every page.
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {

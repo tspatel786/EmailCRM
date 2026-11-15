@@ -9,7 +9,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadWorkbook } from "../lib/export";
 import { fmtDate, telHref } from "../lib/format";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput, TableSkeleton, TableWrap } from "../components/ui";
 import { MemberSelect } from "./Companies";
 import { Users as UsersIcon } from "lucide-react";
 import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
@@ -174,11 +174,16 @@ export function ContactsPage() {
           ))}
         </Select>
       </Toolbar>
-      {!list.data?.rows.length ? (
+      {list.isLoading ? (
+        <Card>
+          <TableSkeleton rows={6} />
+        </Card>
+      ) : !list.data?.rows.length ? (
         <Empty title="No contacts" hint="Create a contact or import Excel/CSV." />
       ) : (
         <Card>
-          <div className="table-scroll"><table className="w-full text-sm">
+          <TableWrap>
+            <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Name</th>
@@ -194,7 +199,7 @@ export function ContactsPage() {
               {list.data.rows.map((c) => (
                 <tr key={c.id} className="border-t">
                   <td className="py-2">
-                    <Link className="font-semibold text-ink-900 hover:text-primary-700 hover:underline" to={`/app/contacts/${c.id}`}>
+                    <Link className="font-semibold text-ink-900 hover:text-primary-700 dark:text-white dark:hover:text-primary-400 hover:underline" to={`/app/contacts/${c.id}`}>
                       {c.full_name}
                     </Link>
                   </td>
@@ -221,7 +226,8 @@ export function ContactsPage() {
                 </tr>
               ))}
             </tbody>
-          </table></div>
+            </table>
+          </TableWrap>
           <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <span>{list.data.count} records</span>
             <div className="flex gap-2">
@@ -244,18 +250,18 @@ export function ContactsPage() {
           )}
         >
           {dupWarning ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {dupWarning}
             </div>
           ) : null}
           {create.error && !dupWarning ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to save contact"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error && !dupWarning ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}

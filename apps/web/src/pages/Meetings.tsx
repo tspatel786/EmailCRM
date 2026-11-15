@@ -185,13 +185,13 @@ export function MeetingsPage() {
           )}
         >
           {save.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(save.error as Error).message || "Failed to save meeting"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !save.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}

@@ -20,6 +20,16 @@
   --topbar-height: 64px;
 }
 
+.dark {
+  color-scheme: dark;
+  --color-bg: #0b1222;
+  --color-surface: #141d33;
+  --color-border: #232e45;
+  --color-text: #e5eaf1;
+  --color-muted: #9aa5b6;
+  --color-primary: #fbbf24;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -79,6 +89,14 @@
   background: #94a3b8;
   background-clip: content-box;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: #364257;
+  background-clip: content-box;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4e5a6e;
+  background-clip: content-box;
+}
 
 /* ------------------------------------------------------------------ */
 /* Tables — consistent SaaS table styling across the whole CRM          */
@@ -102,6 +120,12 @@ thead th {
   text-align: left;
   white-space: nowrap;
 }
+.dark thead th {
+  color: #9aa5b6 !important;
+  background-color: #141d33 !important;
+  border-top-color: #232e45;
+  border-bottom-color: #232e45 !important;
+}
 
 tbody tr {
   transition: background-color 0.15s ease-in-out;
@@ -110,6 +134,9 @@ tbody tr {
 tbody tr:hover {
   background-color: #fafbfc !important;
 }
+.dark tbody tr:hover {
+  background-color: #182238 !important;
+}
 
 tbody td {
   padding: 0.8rem 1rem !important;
@@ -117,6 +144,10 @@ tbody td {
   vertical-align: middle;
   font-size: 0.875rem;
   color: #364257;
+}
+.dark tbody td {
+  border-bottom-color: #1c2740 !important;
+  color: #cdd5e1;
 }
 
 tbody tr:last-child td {
@@ -207,6 +238,9 @@ tbody tr:last-child td {
   position: relative;
   overflow: hidden;
   background-color: #eef2f6;
+}
+.dark .skeleton {
+  background-color: #1c2740;
 }
 .skeleton::after {
   content: "";

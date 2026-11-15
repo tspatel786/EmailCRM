@@ -8,7 +8,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
-import { Badge, Button, Card, Confirm, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Badge, Button, Card, Confirm, Empty, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea } from "../components/ui";
 import { Kanban as KanbanIcon } from "lucide-react";
 
 const STAGES = ["new_lead", "contacted", "qualified", "proposal_sent", "negotiation", "won", "lost"] as const;
@@ -170,21 +170,27 @@ export function DealsPage() {
         }
       />
       {move.error && !lossModal ? (
-        <div className="mb-3 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+        <div className="mb-3 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
           {(move.error as Error).message || "Failed to update deal stage"}
         </div>
       ) : null}
-      {mode === "kanban" ? (
+      {list.isLoading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : list.error ? (
+        <ErrorBox message={(list.error as Error).message || "Failed to load deals"} />
+      ) : !list.data?.length ? (
+        <Empty title="No deals found" hint="Create a deal to start tracking your pipeline." />
+      ) : mode === "kanban" ? (
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map((stage) => (
-            <div key={stage} className="w-64 shrink-0 rounded-xl bg-slate-100 p-2">
+            <div key={stage} className="w-64 shrink-0 rounded-xl bg-slate-100 p-2 dark:bg-ink-800">
               <h3 className="mb-2 px-1 text-sm font-medium capitalize">{stage.replaceAll("_", " ")}</h3>
               {(list.data ?? [])
                 .filter((d) => d.stage === stage)
                 .map((d) => (
-                  <div key={d.id} className="mb-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+                  <div key={d.id} className="mb-2 rounded-lg bg-white p-3 text-sm shadow-sm dark:bg-ink-900">
                     <p className="font-medium">{d.title}</p>
-                    <p className="text-slate-500">{money(Number(d.estimated_value), d.currency)}</p>
+                    <p className="text-slate-500 dark:text-ink-400">{money(Number(d.estimated_value), d.currency)}</p>
                     {writable && stage !== "won" && stage !== "lost" ? (
                       <Select
                         className="mt-2"
@@ -244,13 +250,13 @@ export function DealsPage() {
           )}
         >
           {create.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(create.error as Error).message || "Failed to save deal"}
             </div>
           ) : null}
 
           {Object.keys(form.formState.errors).length > 0 && !create.error ? (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200">
+            <div className="rounded-lg bg-amber-50 p-2.5 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-primary-500/10 dark:text-primary-300 dark:border-primary-500/30">
               Please fix the required fields highlighted below before saving.
             </div>
           ) : null}
@@ -286,7 +292,7 @@ export function DealsPage() {
       <Modal open={Boolean(lossModal)} title="Mark as lost" onClose={() => setLossModal(null)}>
         <div className="space-y-3">
           {move.error ? (
-            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
+            <div className="rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30">
               {(move.error as Error).message || "Failed to mark deal as lost"}
             </div>
           ) : null}

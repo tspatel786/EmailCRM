@@ -199,8 +199,8 @@ export function ReportsPage() {
                         <td className="whitespace-nowrap">
                           <Badge tone="slate">{(a.activity_type || "").replace(/_/g, " ")}</Badge>
                         </td>
-                        <td className="max-w-[520px] truncate text-ink-800">{a.summary}</td>
-                        <td className="whitespace-nowrap text-right text-ink-500">{fmtDateTime(a.occurred_at)}</td>
+                        <td className="max-w-[520px] truncate text-ink-800 dark:text-ink-200">{a.summary}</td>
+                        <td className="whitespace-nowrap text-right text-ink-500 dark:text-ink-400">{fmtDateTime(a.occurred_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -245,13 +245,13 @@ function BreakdownCard({
           {rows.map((r) => (
             <li key={r.label}>
               <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                <span className="min-w-0 flex-1 truncate capitalize text-ink-700">{r.label}</span>
+                <span className="min-w-0 flex-1 truncate capitalize text-ink-700 dark:text-ink-300">{r.label}</span>
                 <span className="shrink-0 tabular-nums">
-                  <span className="font-semibold text-ink-900">{r.n}</span>
+                  <span className="font-semibold text-ink-900 dark:text-white">{r.n}</span>
                   <span className="ml-1.5 text-xs text-ink-400">{Math.round((r.n / total) * 100)}%</span>
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-ink-100">
+              <div className="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
                 <div className={`h-full rounded-full ${color}`} style={{ width: `${(r.n / max) * 100}%` }} />
               </div>
             </li>
