@@ -1,154 +1,164 @@
 #!/usr/bin/env python3
 """
-Automate Supabase Project Creation and Schema Deployment via Supabase Management API.
-Requires a Supabase Personal Access Token from: https://app.supabase.com/account/tokens
+Publish Supabase changes for the existing CRM project -- safe to re-run.
+
+What it does:
+  1. Resolves the project ref from SUPABASE_URL in .env (never creates a project).
+  2. Optionally applies SQL migrations from supabase/migrations via the Supabase
+     Management API -- only the ones you name with --migrate (e.g. --migrate 0023
+     or --migrate 0023-0025). Already-applied migrations are NOT re-run blindly.
+  3. Deploys the Edge Functions in supabase/functions with the Supabase CLI.
+
+It no longer touches Render. Environment variables on Render are managed by
+scripts/deploy_render.py, which only adds/updates individual keys.
+
+Usage:
+  python scripts/setup_supabase.py                    # deploy all edge functions
+  python scripts/setup_supabase.py --functions resend-webhook send-demo-email
+  python scripts/setup_supabase.py --migrate 0023     # apply one migration, then deploy functions
+  python scripts/setup_supabase.py --dry-run
+
+Requires SUPABASE_ACCESS_TOKEN (environment or .env), a personal access token
+from https://supabase.com/dashboard/account/tokens
 """
 
+import argparse
 import os
+import re
+import subprocess
 import sys
-import time
-import requests
-import json
 
-SUPABASE_API_BASE = "https://api.supabase.com/v1"
-RENDER_API_BASE = "https://api.render.com/v1"
-RENDER_KEY = "rnd_ZeE9WbmxvvJNqnU69qujOrb6KWz9"
-WEB_SERVICE_ID = "srv-dbbhm26q1p3s73clkbh0"
-WORKER_SERVICE_ID = "srv-dbbhmdjbc2fs73b8c450"
+import requests
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+API = "https://api.supabase.com/v1"
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+MIGRATIONS_DIR = os.path.join(ROOT, "supabase", "migrations")
+FUNCTIONS_DIR = os.path.join(ROOT, "supabase", "functions")
+
+
+def load_dotenv(path):
+    """Minimal .env parser that keeps '#' inside values (dotenv would truncate them)."""
+    values = {}
+    if not os.path.exists(path):
+        return values
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            values[key.strip()] = value
+    return values
+
+
+def project_ref_from_url(url):
+    m = re.match(r"https://([a-z0-9]+)\.supabase\.co", url or "")
+    return m.group(1) if m else None
+
+
+def list_functions():
+    return sorted(
+        d for d in os.listdir(FUNCTIONS_DIR)
+        if not d.startswith("_") and os.path.isfile(os.path.join(FUNCTIONS_DIR, d, "index.ts"))
+    )
+
+
+def parse_migrate(spec):
+    """'0023' -> ['0023']; '0023-0025' -> ['0023','0024','0025']."""
+    if "-" in spec:
+        a, b = spec.split("-", 1)
+        return [f"{n:04d}" for n in range(int(a), int(b) + 1)]
+    return [f"{int(spec):04d}"]
+
+
+def migration_files(numbers):
+    files = sorted(os.listdir(MIGRATIONS_DIR))
+    out = []
+    for n in numbers:
+        match = [f for f in files if f.startswith(n + "_") and f.endswith(".sql")]
+        if not match:
+            sys.exit(f"Migration {n} not found in supabase/migrations")
+        out.append(match[0])
+    return out
+
+
+def run_sql(token, ref, sql):
+    r = requests.post(
+        f"{API}/projects/{ref}/database/query",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"query": sql},
+        timeout=120,
+    )
+    if r.status_code >= 400:
+        raise RuntimeError(f"HTTP {r.status_code}: {r.text[:400]}")
+    return r.json() if r.text else None
+
 
 def main():
-    token = os.environ.get("SUPABASE_ACCESS_TOKEN")
-    if not token and len(sys.argv) > 1:
-        token = sys.argv[1].strip()
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--functions", nargs="*", help="edge functions to deploy (default: all)")
+    ap.add_argument("--no-functions", action="store_true", help="skip edge function deployment")
+    ap.add_argument("--migrate", help="migration number or range to apply, e.g. 0023 or 0023-0025")
+    ap.add_argument("--dry-run", action="store_true", help="show what would happen, change nothing")
+    args = ap.parse_args()
 
+    local = load_dotenv(os.path.join(ROOT, ".env"))
+    token = os.environ.get("SUPABASE_ACCESS_TOKEN") or local.get("SUPABASE_ACCESS_TOKEN")
+    ref = project_ref_from_url(os.environ.get("SUPABASE_URL") or local.get("SUPABASE_URL"))
+    if not ref:
+        sys.exit("Could not read the project ref from SUPABASE_URL in .env")
     if not token:
-        print("=" * 60)
-        print("Supabase Personal Access Token Required")
-        print("=" * 60)
-        print("1. Log in to Supabase: https://supabase.com (using GitHub or Google)")
-        print("2. Generate Access Token at: https://app.supabase.com/account/tokens")
-        print("3. Run: python scripts/setup_supabase.py <TOKEN>")
-        print("=" * 60)
-        token = input("Enter Supabase Access Token (sbp_...): ").strip()
-        if not token:
-            print("Aborted.")
-            return
+        sys.exit("SUPABASE_ACCESS_TOKEN is not set (environment or .env). "
+                 "Create one at https://supabase.com/dashboard/account/tokens")
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+    print(f"[1/3] Project: {ref}")
+    r = requests.get(f"{API}/projects/{ref}", headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    if r.status_code != 200:
+        sys.exit(f"Cannot access project {ref}: HTTP {r.status_code} {r.text[:200]}")
+    print(f"  [ok] {r.json().get('name')} ({r.json().get('status')})")
 
-    print("\n[1/5] Fetching Supabase Organizations...")
-    orgs_resp = requests.get(f"{SUPABASE_API_BASE}/organizations", headers=headers)
-    if orgs_resp.status_code != 200:
-        print(f"Error authenticating with Supabase: HTTP {orgs_resp.status_code}")
-        print(orgs_resp.text)
-        return
-
-    orgs = orgs_resp.json()
-    if not orgs:
-        print("Error: No Supabase organizations found. Please create one in Supabase dashboard.")
-        return
-
-    org_id = orgs[0]["id"]
-    print(f"[OK] Organization found: {orgs[0].get('name')} (ID: {org_id})")
-
-    db_password = os.environ.get("SUPABASE_DB_PASS", "CrmSecurePass2026!#")
-    project_payload = {
-        "name": "itservices-crm",
-        "organization_id": org_id,
-        "region": "ap-south-1", # Mumbai region
-        "plan": "free",
-        "db_pass": db_password
-    }
-
-    print("\n[2/5] Creating Supabase Project (Mumbai region)...")
-    proj_resp = requests.post(f"{SUPABASE_API_BASE}/projects", headers=headers, json=project_payload)
-    if proj_resp.status_code in (200, 201):
-        proj_data = proj_resp.json()
-        project_ref = proj_data["id"]
-        print(f"[SUCCESS] Project initiated! Ref: {project_ref}")
+    print("\n[2/3] Migrations")
+    if not args.migrate:
+        print("  [skip] none requested (use --migrate NNNN to apply one)")
     else:
-        # Check if project already exists
-        print(f"Note: {proj_resp.text}")
-        list_resp = requests.get(f"{SUPABASE_API_BASE}/projects", headers=headers)
-        if list_resp.status_code == 200 and list_resp.json():
-            project_ref = list_resp.json()[0]["id"]
-            print(f"Using existing project ref: {project_ref}")
-        else:
-            return
+        for name in migration_files(parse_migrate(args.migrate)):
+            if args.dry_run:
+                print(f"  [dry-run] would apply {name}")
+                continue
+            with open(os.path.join(MIGRATIONS_DIR, name), encoding="utf-8") as f:
+                sql = f.read()
+            # Run each migration atomically: any error rolls the whole file back.
+            run_sql(token, ref, f"begin;\n{sql}\ncommit;")
+            print(f"  [applied] {name}")
 
-    print("\n[3/5] Waiting for Supabase Database to be ACTIVE (takes ~30-60s)...")
-    supabase_url = f"https://{project_ref}.supabase.co"
-    anon_key = ""
-    service_key = ""
+    print("\n[3/3] Edge functions")
+    if args.no_functions:
+        print("  [skip] --no-functions")
+        return
+    names = args.functions or list_functions()
+    unknown = [n for n in names if n not in list_functions()]
+    if unknown:
+        sys.exit(f"Unknown edge functions: {', '.join(unknown)}")
+    cmd = ["npx", "--yes", "supabase", "functions", "deploy", *names, "--project-ref", ref, "--use-api"]
+    print("  " + " ".join(cmd))
+    if args.dry_run:
+        print("  [dry-run] not executed")
+        return
+    env = dict(os.environ, SUPABASE_ACCESS_TOKEN=token)
+    result = subprocess.run(cmd, cwd=ROOT, env=env, shell=(os.name == "nt"))
+    if result.returncode != 0:
+        sys.exit(f"Edge function deploy failed (exit {result.returncode})")
+    print("\nSUPABASE PUBLISH OK")
 
-    for attempt in range(25):
-        time.sleep(5)
-        status_resp = requests.get(f"{SUPABASE_API_BASE}/projects/{project_ref}/status", headers=headers)
-        if status_resp.status_code == 200:
-            status = status_resp.json().get("status")
-            print(f"  Attempt {attempt+1}: Status = {status}")
-            if status == "ACTIVE_HEALTHY":
-                break
-
-    print("\n[4/5] Fetching API Keys...")
-    keys_resp = requests.get(f"{SUPABASE_API_BASE}/projects/{project_ref}/api-keys", headers=headers)
-    if keys_resp.status_code == 200:
-        for k in keys_resp.json():
-            if k.get("name") == "anon":
-                anon_key = k.get("api_key")
-            elif k.get("name") == "service_role":
-                service_key = k.get("api_key")
-        print(f"[OK] Anon Key: {anon_key[:15]}...")
-        print(f"[OK] Service Key: {service_key[:15]}...")
-    else:
-        print(f"Could not fetch keys: {keys_resp.text}")
-
-    print("\n[5/5] Deploying Database Schema (deploy_all.sql)...")
-    sql_path = os.path.join(os.path.dirname(__file__), "..", "supabase", "deploy_all.sql")
-    if os.path.exists(sql_path):
-        with open(sql_path, "r", encoding="utf-8") as f:
-            sql_content = f.read()
-        sql_resp = requests.post(
-            f"{SUPABASE_API_BASE}/projects/{project_ref}/database/query",
-            headers=headers,
-            json={"query": sql_content}
-        )
-        if sql_resp.status_code in (200, 201):
-            print("[SUCCESS] All 12 Database Migrations and RLS applied successfully!")
-        else:
-            print(f"SQL deployment note: {sql_resp.status_code} - {sql_resp.text[:300]}")
-
-    # Injecting environment variables into Render automatically
-    if anon_key and service_key:
-        print("\n[BONUS] Automatically injecting Supabase keys into Render...")
-        r_headers = {"Authorization": f"Bearer {RENDER_KEY}", "Content-Type": "application/json"}
-        
-        # update crm-web env
-        web_env = [
-            {"key": "VITE_SUPABASE_URL", "value": supabase_url},
-            {"key": "VITE_SUPABASE_ANON_KEY", "value": anon_key}
-        ]
-        requests.put(f"{RENDER_API_BASE}/services/{WEB_SERVICE_ID}/env-vars", headers=r_headers, json=web_env)
-        print("[OK] crm-web env updated on Render!")
-
-        # update crm-worker env
-        worker_env = [
-            {"key": "SUPABASE_URL", "value": supabase_url},
-            {"key": "SUPABASE_SERVICE_ROLE_KEY", "value": service_key},
-            {"key": "SMTP_MOCK", "value": "true"},
-            {"key": "NODE_ENV", "value": "production"}
-        ]
-        requests.put(f"{RENDER_API_BASE}/services/{WORKER_SERVICE_ID}/env-vars", headers=r_headers, json=worker_env)
-        print("[OK] crm-worker env updated on Render!")
-
-    print("\n" + "=" * 60)
-    print("ALL DONE! Supabase + Render are now 100% connected!")
-    print(f"Frontend Live URL: https://crm-web-wbq7.onrender.com")
-    print(f"Supabase Dashboard: https://supabase.com/dashboard/project/{project_ref}")
-    print("=" * 60)
 
 if __name__ == "__main__":
     main()
