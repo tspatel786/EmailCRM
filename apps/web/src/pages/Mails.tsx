@@ -330,11 +330,11 @@ export function MailsPage() {
       />
 
       {/* Mail client */}
-      <div className="flex min-h-[560px] flex-col overflow-hidden rounded-card border border-ink-200/70 bg-white shadow-pop lg:h-[calc(100dvh-var(--topbar-height)-11rem)] lg:flex-row">
+      <div className="flex min-h-[560px] min-w-0 flex-col overflow-hidden rounded-card border border-ink-200/70 bg-white shadow-pop lg:grid lg:h-[calc(100dvh-var(--topbar-height)-11rem)] lg:grid-cols-[224px_minmax(320px,380px)_minmax(0,1fr)]">
         {/* Folders: horizontal tabs below lg, sidebar column on lg+ */}
         <nav
           aria-label="Mail folders"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-ink-100 bg-ink-50/40 p-2 lg:w-56 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r lg:bg-transparent lg:p-3"
+          className="flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-ink-100 bg-ink-50/40 p-2 lg:min-h-0 lg:flex-col lg:overflow-visible lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-transparent lg:p-3"
         >
           <span className="hidden px-3 pb-1 text-2xs font-semibold uppercase tracking-wide text-ink-400 lg:block">
             Folders
@@ -384,8 +384,8 @@ export function MailsPage() {
 
         {/* Message list (hidden on small screens while reading) */}
         <div
-          className={`min-h-0 flex-col border-ink-100 lg:flex lg:w-[340px] lg:shrink-0 lg:border-r xl:w-[380px] ${
-            readerOpen ? "hidden" : "flex flex-1 lg:flex-none"
+          className={`min-h-0 min-w-0 flex-col overflow-hidden border-ink-100 lg:flex lg:border-r ${
+            readerOpen ? "hidden" : "flex flex-1"
           }`}
         >
           <div className="border-b border-ink-100 p-3">
@@ -463,7 +463,7 @@ export function MailsPage() {
         </div>
 
         {/* Reading pane (full width on small screens when a message is open) */}
-        <div className={`min-h-0 min-w-0 flex-1 flex-col lg:flex ${readerOpen ? "flex" : "hidden"}`}>
+        <div className={`min-h-0 min-w-0 flex-col overflow-hidden lg:flex ${readerOpen ? "flex flex-1" : "hidden"}`}>
           {selectedMessage ? (
             <div className="flex h-full min-h-0 flex-col">
               <div className="border-b border-ink-100 p-4 sm:p-5">
@@ -486,11 +486,13 @@ export function MailsPage() {
                       <h2 className="break-words font-display text-lg font-bold leading-snug text-ink-900">
                         {selectedMessage.subject || "(No Subject)"}
                       </h2>
-                      <p className="break-all text-sm text-ink-600">
-                        <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name} &lt;{selectedMessage.from_email}&gt;
+                      <p className="text-sm text-ink-600">
+                        <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name}{" "}
+                        <span className="break-words [overflow-wrap:anywhere]">&lt;{selectedMessage.from_email}&gt;</span>
                       </p>
-                      <p className="break-all text-sm text-ink-500">
-                        <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name} &lt;{selectedMessage.to_email}&gt;
+                      <p className="text-sm text-ink-500">
+                        <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name}{" "}
+                        <span className="break-words [overflow-wrap:anywhere]">&lt;{selectedMessage.to_email}&gt;</span>
                       </p>
                     </div>
                   </div>
