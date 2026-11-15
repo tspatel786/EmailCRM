@@ -148,7 +148,7 @@ def main():
     unknown = [n for n in names if n not in list_functions()]
     if unknown:
         sys.exit(f"Unknown edge functions: {', '.join(unknown)}")
-    cmd = ["npx", "--yes", "supabase", "functions", "deploy", *names, "--project-ref", ref, "--use-api"]
+    cmd = ["npx", "--yes", "supabase", "functions", "deploy", *names, "--project-ref", ref, "--use-api", "--yes"]
     print("  " + " ".join(cmd))
     if args.dry_run:
         print("  [dry-run] not executed")
