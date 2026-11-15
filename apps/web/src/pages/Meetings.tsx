@@ -8,6 +8,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
 import { Badge, Button, Card, Confirm, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 type Form = z.infer<typeof meetingFormSchema>;
 type Meeting = { id: string; title: string; starts_at: string; ends_at: string | null; status: string; agenda: string | null; notes: string | null; outcome: string | null; location: string | null; contact_id: string | null; company_id: string | null };
@@ -134,7 +135,7 @@ export function MeetingsPage() {
   return (
     <div>
       <PageHeader
-        title="Meetings"
+        title="Meetings" icon={<CalendarIcon size={20} />}
         subtitle="Calendar sync is not configured. ICS export is not implemented; this is in-app scheduling only."
         actions={writable ? <Button onClick={openCreate}>Schedule</Button> : null}
       />
@@ -175,9 +176,9 @@ export function MeetingsPage() {
           </table></div>
         </Card>
       )}
-      <Modal open={open} title={editTarget ? "Edit meeting" : "Schedule meeting"} onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title={editTarget ? "Edit meeting" : "Schedule meeting"} onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => save.mutate(v),
             (errors) => console.warn("Meeting validation errors:", errors)

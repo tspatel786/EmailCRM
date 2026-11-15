@@ -25,18 +25,35 @@ export default {
         },
         // Neutral ink used for text, sidebar and surfaces
         ink: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a",
-          950: "#0b1120",
+          50: "#f5f7fb",
+          100: "#edf1f7",
+          200: "#e5eaf1",
+          300: "#cdd5e1",
+          400: "#9aa5b6",
+          500: "#68758a",
+          600: "#4e5a6e",
+          700: "#364257",
+          800: "#232e45",
+          900: "#172033",
+          950: "#101b35",
         },
+        // Legacy pages use `slate-*` directly: map it to the same navy-tinted scale so the
+        // whole app shares one neutral palette.
+        slate: {
+          50: "#f5f7fb",
+          100: "#edf1f7",
+          200: "#e5eaf1",
+          300: "#cdd5e1",
+          400: "#9aa5b6",
+          500: "#68758a",
+          600: "#4e5a6e",
+          700: "#364257",
+          800: "#232e45",
+          900: "#172033",
+          950: "#101b35",
+        },
+        success: { 50: "#ecfdf5", 500: "#10b981", 600: "#059669", 700: "#047857" },
+        danger: { 50: "#fef2f2", 500: "#ef4444", 600: "#dc2626", 700: "#b91c1c" },
         // Legacy alias kept for existing usages
         brand: {
           50: "#f0fdfa",
@@ -48,8 +65,8 @@ export default {
         },
       },
       borderRadius: {
-        card: "1rem",
-        control: "0.625rem",
+        card: "0.875rem",
+        control: "0.5rem",
       },
       boxShadow: {
         card: "0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.03)",

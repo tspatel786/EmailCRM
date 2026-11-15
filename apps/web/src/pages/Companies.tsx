@@ -8,6 +8,8 @@ import { supabase } from "../lib/supabase";
 import { downloadWorkbook } from "../lib/export";
 import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
 import { z } from "zod";
+import { Building2 as Building2Icon } from "lucide-react";
+import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 type Form = z.infer<typeof companyFormSchema>;
 
@@ -106,7 +108,7 @@ export function CompaniesPage() {
   return (
     <div>
       <PageHeader
-        title="Companies"
+        title="Companies" icon={<Building2Icon size={20} />}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -159,7 +161,7 @@ export function CompaniesPage() {
                   <td>{c.city ?? "—"}</td>
                   <td>
                     {c.website ? (
-                      <a href={c.website.startsWith("http") ? c.website : `https://${c.website}`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">
+                      <a href={c.website.startsWith("http") ? c.website : `https://${c.website}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary-700 underline-offset-2 hover:underline">
                         {c.website}
                       </a>
                     ) : (
@@ -172,16 +174,16 @@ export function CompaniesPage() {
           </table></div>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
                 Page {page} of {totalPages} ({list.data.total} companies)
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
+                  <ChevronLeftIcon size={15} /> Previous
                 </Button>
                 <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
+                  Next <ChevronRightIcon size={15} />
                 </Button>
               </div>
             </div>
@@ -189,9 +191,9 @@ export function CompaniesPage() {
         </Card>
       )}
 
-      <Modal open={open} title="New company" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New company" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Company validation errors:", errors)

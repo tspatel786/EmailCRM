@@ -5,6 +5,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadWorkbook, downloadMultiSheetWorkbook } from "../lib/export";
 import { Button, Card, PageHeader } from "../components/ui";
+import { BarChart3 as BarChart3Icon } from "lucide-react";
 
 export function ReportsPage() {
   const { org } = useSession();
@@ -45,7 +46,7 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Reports"
+        title="Reports" icon={<BarChart3Icon size={20} />}
         subtitle="Filtered to your organization through RLS."
         actions={
           <>

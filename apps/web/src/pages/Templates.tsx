@@ -9,6 +9,7 @@ import { FileText } from "lucide-react";
 import { useSession } from "../lib/session";
 import { invokeFunction, supabase } from "../lib/supabase";
 import { Button, Card, Confirm, Empty, ErrorBox, Field, Input, Modal, PageHeader, Spinner, Textarea } from "../components/ui";
+import { FileText as FileTextIcon } from "lucide-react";
 
 type Form = z.infer<typeof templateFormSchema>;
 type Template = { id: string; name: string; subject: string; body_text: string; body_html: string };
@@ -223,7 +224,7 @@ export function TemplatesPage() {
   return (
     <div>
       <PageHeader
-        title="Email templates"
+        title="Email templates" icon={<FileTextIcon size={20} />}
         subtitle="Variables: {{name}}, {{company}}, {{service}}, {{email}}, {{phone}}, {{city}}"
         actions={manage ? <Button onClick={openCreate}>New template</Button> : null}
       />
@@ -296,7 +297,7 @@ export function TemplatesPage() {
           ))}
         </div>
       )}
-      <Modal open={open} title={editTarget ? "Edit template" : "New template"} onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title={editTarget ? "Edit template" : "New template"} onClose={() => setOpen(false)}>
         <form
           className="space-y-3"
           onSubmit={form.handleSubmit(
@@ -376,7 +377,7 @@ export function TemplatesPage() {
       />
 
       {/* Demo Email Trigger Modal */}
-      <Modal open={Boolean(demoTarget)} title={`Send Demo Email: ${demoTarget?.name || "Template"}`} onClose={() => setDemoTarget(null)}>
+      <Modal size="lg" open={Boolean(demoTarget)} title={`Send Demo Email: ${demoTarget?.name || "Template"}`} onClose={() => setDemoTarget(null)}>
         {demoTarget && (
           <div className="space-y-4">
             <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 leading-relaxed">

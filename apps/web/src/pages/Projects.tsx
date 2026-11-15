@@ -8,6 +8,8 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
 import { MemberSelect } from "./Companies";
+import { FolderKanban as FolderKanbanIcon } from "lucide-react";
+import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 type Form = z.infer<typeof projectFormSchema>;
 
@@ -274,7 +276,7 @@ export function ProjectsPage() {
   return (
     <div>
       <PageHeader
-        title="Projects"
+        title="Projects" icon={<FolderKanbanIcon size={20} />}
         subtitle="Track delivery projects, team assignment, and milestones."
         actions={
           writable ? (
@@ -340,16 +342,16 @@ export function ProjectsPage() {
           </table></div>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
                 Page {page} of {totalPages} ({filtered.length} projects)
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
+                  <ChevronLeftIcon size={15} /> Previous
                 </Button>
                 <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
+                  Next <ChevronRightIcon size={15} />
                 </Button>
               </div>
             </div>
@@ -358,9 +360,9 @@ export function ProjectsPage() {
       )}
 
       {/* New Project Modal */}
-      <Modal open={open} title="New project" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New project" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Project validation errors:", errors)
@@ -465,7 +467,7 @@ export function ProjectsPage() {
                           checked={Boolean(m.completed_at)}
                           disabled={!writable || toggleMilestone.isPending}
                           onChange={(e) => toggleMilestone.mutate({ id: m.id, completed: e.target.checked })}
-                          className="h-4 w-4 rounded border-slate-300 text-brand-700"
+                          className="h-4 w-4 rounded border-slate-300 accent-primary-500"
                         />
                         <span className={m.completed_at ? "line-through text-slate-400" : "font-medium text-slate-800"}>
                           {m.title}

@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
 import { MemberSelect } from "./Companies";
+import { ListTodo as ListTodoIcon } from "lucide-react";
 
 type Form = z.infer<typeof taskFormSchema>;
 
@@ -156,7 +157,7 @@ export function FollowUpsPage() {
   return (
     <div>
       <PageHeader
-        title="Follow-ups & tasks"
+        title="Follow-ups & tasks" icon={<ListTodoIcon size={20} />}
         subtitle="Overdue is derived from due date. Reminders are created by the server worker, not the browser."
         actions={
           writable ? (
@@ -237,9 +238,9 @@ export function FollowUpsPage() {
           </table></div>
         </Card>
       )}
-      <Modal open={open} title="New task" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New task" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Task validation errors:", errors)

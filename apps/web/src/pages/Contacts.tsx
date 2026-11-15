@@ -11,6 +11,8 @@ import { downloadWorkbook } from "../lib/export";
 import { fmtDate, telHref } from "../lib/format";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
 import { MemberSelect } from "./Companies";
+import { Users as UsersIcon } from "lucide-react";
+import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 type Form = z.infer<typeof contactFormSchema>;
 const PAGE = 25;
@@ -136,7 +138,7 @@ export function ContactsPage() {
   return (
     <div>
       <PageHeader
-        title="Contacts"
+        title="Contacts" icon={<UsersIcon size={20} />}
         subtitle="Leads and customers. Duplicate emails are blocked per organization."
         actions={
           <>
@@ -192,7 +194,7 @@ export function ContactsPage() {
               {list.data.rows.map((c) => (
                 <tr key={c.id} className="border-t">
                   <td className="py-2">
-                    <Link className="font-medium text-brand-800 hover:underline" to={`/app/contacts/${c.id}`}>
+                    <Link className="font-semibold text-ink-900 hover:text-primary-700 hover:underline" to={`/app/contacts/${c.id}`}>
                       {c.full_name}
                     </Link>
                   </td>
@@ -200,7 +202,7 @@ export function ContactsPage() {
                   <td>{c.primary_email}</td>
                   <td>
                     {telHref(c.primary_phone) ? (
-                      <a className="text-brand-700" href={telHref(c.primary_phone)!}>
+                      <a className="font-medium text-primary-700 hover:underline" href={telHref(c.primary_phone)!}>
                         {c.primary_phone}
                       </a>
                     ) : (
@@ -220,22 +222,22 @@ export function ContactsPage() {
               ))}
             </tbody>
           </table></div>
-          <div className="mt-3 flex items-center justify-between text-sm">
+          <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <span>{list.data.count} records</span>
             <div className="flex gap-2">
               <Button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                Previous
+                <ChevronLeftIcon size={15} /> Previous
               </Button>
               <Button variant="secondary" disabled={(page + 1) * PAGE >= list.data.count} onClick={() => setPage((p) => p + 1)}>
-                Next
+                Next <ChevronRightIcon size={15} />
               </Button>
             </div>
           </div>
         </Card>
       )}
-      <Modal open={open} title="New contact" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New contact" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Contact validation errors:", errors)

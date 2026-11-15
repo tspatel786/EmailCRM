@@ -7,14 +7,14 @@
 /* ------------------------------------------------------------------ */
 :root {
   color-scheme: light;
-  --color-bg: #f6f7f9;
+  --color-bg: #f5f7fb;
   --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
+  --color-border: #e5eaf1;
+  --color-text: #172033;
+  --color-muted: #68758a;
   --color-primary: #f59e0b;
-  --radius-card: 1rem;
-  --radius-control: 0.625rem;
+  --radius-card: 0.875rem;
+  --radius-control: 0.5rem;
   --sidebar-width: 264px;
   --sidebar-collapsed: 76px;
   --topbar-height: 64px;
@@ -95,10 +95,10 @@ thead th {
   font-weight: 600 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.06em !important;
-  color: #64748b !important;
+  color: #68758a !important;
   background-color: #f8fafc !important;
-  border-top: 1px solid #eef2f6;
-  border-bottom: 1px solid #e2e8f0 !important;
+  border-top: 1px solid #edf1f7;
+  border-bottom: 1px solid #e5eaf1 !important;
   text-align: left;
   white-space: nowrap;
 }
@@ -113,10 +113,10 @@ tbody tr:hover {
 
 tbody td {
   padding: 0.8rem 1rem !important;
-  border-bottom: 1px solid #f1f5f9 !important;
+  border-bottom: 1px solid #edf1f7 !important;
   vertical-align: middle;
   font-size: 0.875rem;
-  color: #334155;
+  color: #364257;
 }
 
 tbody tr:last-child td {
@@ -176,6 +176,23 @@ tbody tr:last-child td {
   }
   .crm-toolbar > .crm-search {
     flex: 1 1 16rem;
+  }
+}
+
+/* Two-column form layout for larger dialogs. Fields are <label> elements; anything
+   else (alerts, button rows, groups) and multi-line fields span the full width. */
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-grid > :not(label),
+  .form-grid > label:has(textarea) {
+    grid-column: 1 / -1;
   }
 }
 

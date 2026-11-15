@@ -4,6 +4,7 @@ import { canAdmin, canInviteRole, ROLES, type AppRole } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { invokeFunction, supabase } from "../lib/supabase";
 import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select } from "../components/ui";
+import { Shield as ShieldIcon } from "lucide-react";
 
 export function TeamPage() {
   const { org } = useSession();
@@ -52,7 +53,7 @@ export function TeamPage() {
   return (
     <div>
       <PageHeader
-        title="Team"
+        title="Team" icon={<ShieldIcon size={20} />}
         subtitle="Public signup is disabled. Members join by invite only."
         actions={
           admin ? (

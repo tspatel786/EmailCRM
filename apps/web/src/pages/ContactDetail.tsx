@@ -263,16 +263,24 @@ export function ContactDetailPage() {
           ) : null
         }
       />
-      <div className="mb-4 flex flex-wrap gap-2">
-        {tabs.map((t) => (
-          <button
-            key={t}
-            className={`rounded-full px-3 py-1 text-sm ${tab === t ? "bg-brand-700 text-white" : "bg-white text-slate-700 border"}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="-mx-4 mb-5 overflow-x-auto border-b border-ink-200 px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Contact sections">
+        <div className="flex min-w-max gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={`relative min-h-11 whitespace-nowrap px-3.5 text-sm font-medium transition-colors ${
+                tab === t ? "text-ink-900" : "text-ink-500 hover:text-ink-800"
+              }`}
+              onClick={() => setTab(t)}
+            >
+              {t}
+              {tab === t ? <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary-500" aria-hidden /> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "Overview" || tab === "Timeline" ? (
@@ -284,7 +292,7 @@ export function ContactDetailPage() {
             <p>
               Phone:{" "}
               {telHref(c.primary_phone) ? (
-                <a className="text-brand-700" href={telHref(c.primary_phone)!}>
+                <a className="font-medium text-primary-700 hover:underline" href={telHref(c.primary_phone)!}>
                   {c.primary_phone}
                 </a>
               ) : (
@@ -309,7 +317,7 @@ export function ContactDetailPage() {
             ) : (
               <ol className="space-y-3">
                 {timeline.data.map((a) => (
-                  <li key={a.id} className="border-l-2 border-brand-600 pl-3 text-sm">
+                  <li key={a.id} className="border-l-2 border-primary-400 pl-3 text-sm">
                     <div className="flex flex-wrap gap-2 text-slate-500">
                       <Badge tone="teal">{a.activity_type}</Badge>
                       <span>{fmtDateTime(a.occurred_at)}</span>
@@ -445,7 +453,7 @@ export function ContactDetailPage() {
         onConfirm={() => archive.mutate()}
       />
       <p className="mt-6 text-sm">
-        <Link className="text-brand-700" to="/app/contacts">
+        <Link className="font-medium text-primary-700 hover:underline" to="/app/contacts">
           Back to contacts
         </Link>
       </p>

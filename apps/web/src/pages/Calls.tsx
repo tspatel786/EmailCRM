@@ -8,6 +8,8 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime, telHref } from "../lib/format";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
+import { Phone as PhoneIcon } from "lucide-react";
+import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 type Form = z.infer<typeof callFormSchema>;
 
@@ -231,7 +233,7 @@ export function CallsPage() {
   return (
     <div>
       <PageHeader
-        title="Calls"
+        title="Calls" icon={<PhoneIcon size={20} />}
         subtitle="Manual call logging, follow-ups, and notes. tel: links allow quick browser dialing."
         actions={
           writable ? (
@@ -319,7 +321,7 @@ export function CallsPage() {
                     <td>{c.duration_seconds ? `${c.duration_seconds}s` : "—"}</td>
                     <td>
                       {telHref(phone) ? (
-                        <a className="text-brand-700 underline" href={telHref(phone)!}>
+                        <a className="font-medium text-primary-700 underline-offset-2 hover:underline" href={telHref(phone)!}>
                           Call
                         </a>
                       ) : (
@@ -343,16 +345,16 @@ export function CallsPage() {
           </table></div>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
                 Page {page} of {totalPages} ({filteredCalls.length} calls)
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
+                  <ChevronLeftIcon size={15} /> Previous
                 </Button>
                 <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
+                  Next <ChevronRightIcon size={15} />
                 </Button>
               </div>
             </div>
@@ -361,9 +363,9 @@ export function CallsPage() {
       )}
 
       {/* Log Call Modal */}
-      <Modal open={open} title="Log call" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="Log call" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Log call validation errors:", errors)
@@ -436,10 +438,10 @@ export function CallsPage() {
       </Modal>
 
       {/* Edit Call Modal (H2) */}
-      <Modal open={Boolean(editingCall)} title="Edit call details" onClose={() => setEditingCall(null)}>
+      <Modal size="lg" open={Boolean(editingCall)} title="Edit call details" onClose={() => setEditingCall(null)}>
         {editingCall && (
           <form
-            className="space-y-3"
+            className="form-grid"
             onSubmit={editForm.handleSubmit((v) =>
               update.mutate({
                 id: editingCall.id,

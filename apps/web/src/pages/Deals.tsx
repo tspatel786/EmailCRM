@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import { money } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
 import { Badge, Button, Card, Confirm, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Kanban as KanbanIcon } from "lucide-react";
 
 const STAGES = ["new_lead", "contacted", "qualified", "proposal_sent", "negotiation", "won", "lost"] as const;
 type Form = z.infer<typeof dealFormSchema>;
@@ -144,7 +145,7 @@ export function DealsPage() {
   return (
     <div>
       <PageHeader
-        title="Deals"
+        title="Deals" icon={<KanbanIcon size={20} />}
         actions={
           <div className="flex items-center gap-2">
             <Button type="button" variant="secondary" onClick={() => setMode(mode === "kanban" ? "list" : "kanban")}>
@@ -234,9 +235,9 @@ export function DealsPage() {
           </table></div>
         </Card>
       )}
-      <Modal open={open} title="New deal" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New deal" onClose={() => setOpen(false)}>
         <form
-          className="space-y-3"
+          className="form-grid"
           onSubmit={form.handleSubmit(
             (v) => create.mutate(v),
             (errors) => console.warn("Deal validation errors:", errors)

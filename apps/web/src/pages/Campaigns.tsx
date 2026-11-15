@@ -10,6 +10,7 @@ import { useSession } from "../lib/session";
 import { invokeFunction, supabase } from "../lib/supabase";
 import { downloadWorkbook } from "../lib/export";
 import { Button, Card, Confirm, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Megaphone as MegaphoneIcon } from "lucide-react";
 
 type Form = z.infer<typeof campaignFormSchema>;
 
@@ -83,7 +84,7 @@ export function CampaignsPage() {
   return (
     <div>
       <PageHeader
-        title="Campaigns"
+        title="Campaigns" icon={<MegaphoneIcon size={20} />}
         subtitle="Queueing is confirmed server-side. Unknown/withdrawn consent is never mailed when consent is required."
         actions={
           manage ? (
@@ -147,7 +148,7 @@ export function CampaignsPage() {
           </div>
         </Card>
       )}
-      <Modal open={open} title="New Campaign (नवीन मोहीम)" onClose={() => setOpen(false)}>
+      <Modal size="lg" open={open} title="New Campaign (नवीन मोहीम)" onClose={() => setOpen(false)}>
         <form
           className="space-y-3.5"
           onSubmit={form.handleSubmit(

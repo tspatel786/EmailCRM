@@ -4,6 +4,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
 import { Card, Empty, PageHeader } from "../components/ui";
+import { ScrollText as ScrollTextIcon } from "lucide-react";
 
 export function AuditLogsPage() {
   const { org } = useSession();
@@ -19,7 +20,7 @@ export function AuditLogsPage() {
 
   return (
     <div>
-      <PageHeader title="Audit logs" subtitle="Security-sensitive actions. Email bodies and passwords are never stored here." />
+      <PageHeader title="Audit logs" icon={<ScrollTextIcon size={20} />} subtitle="Security-sensitive actions. Email bodies and passwords are never stored here." />
       {!logs.data?.length ? (
         <Empty title="No audit events" />
       ) : (

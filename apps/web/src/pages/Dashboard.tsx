@@ -6,6 +6,7 @@ import { canAdmin } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadMultiSheetWorkbook } from "../lib/export";
+import { DashboardWidgets } from "../components/DashboardWidgets";
 import { money } from "../lib/format";
 import { Button, Card, CardHeader, Empty, ErrorBox, Input, PageHeader, Skeleton, StatCard, TableWrap, type BadgeTone } from "../components/ui";
 import {
@@ -285,16 +286,44 @@ export function DashboardPage() {
         <ErrorBox message={`Could not load dashboard: ${(query.error as Error).message}`} />
       ) : (
         <div className="space-y-6">
-          {groups.map((g) => (
-            <section key={g.title}>
-              <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-500">{g.title}</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-                {g.tiles.map((t) => (
-                  <StatCard key={t.label} label={t.label} value={t.value} tone={t.tone} icon={<t.icon size={16} />} />
-                ))}
-              </div>
-            </section>
-          ))}
+          {(() => {
+            // Columns sized to each group's tile count so no group leaves an empty gap.
+            const cols: Record<number, string> = {
+              3: "grid-cols-2 sm:grid-cols-3",
+              4: "grid-cols-2 lg:grid-cols-4",
+              5: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5",
+            };
+            const section = (g: (typeof groups)[number]) => (
+              <section key={g.title} className="min-w-0">
+                <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-500">{g.title}</h2>
+                <div className={`grid gap-3 ${cols[g.tiles.length] ?? cols[5]}`}>
+                  {g.tiles.map((t) => (
+                    <StatCard key={t.label} label={t.label} value={t.value} tone={t.tone} icon={<t.icon size={16} />} />
+                  ))}
+                </div>
+              </section>
+            );
+            const [leads, calls, mail, sales] = groups;
+            return (
+              <>
+                <div className="grid gap-6 xl:grid-cols-2">
+                  {leads ? section(leads) : null}
+                  {mail ? section(mail) : null}
+                </div>
+                {calls ? section(calls) : null}
+                {sales ? section(sales) : null}
+              </>
+            );
+          })()}
+
+          {orgId ? (
+            <DashboardWidgets
+              orgId={orgId}
+              userId={user?.id}
+              scopeToMe={scopeToMe}
+              email={c ? { queued: c.queued, sent: c.sent, failed: c.failed } : undefined}
+            />
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>

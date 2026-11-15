@@ -4,6 +4,7 @@ import { canAdmin } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Field, Input, PageHeader } from "../components/ui";
+import { Settings as SettingsIcon } from "lucide-react";
 
 export function SettingsPage() {
   const { org, user, refresh } = useSession();
@@ -73,7 +74,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Tenant settings and optional TOTP MFA for privileged users. SMTP credentials are never stored in the browser." />
+      <PageHeader title="Settings" icon={<SettingsIcon size={20} />} subtitle="Tenant settings and optional TOTP MFA for privileged users. SMTP credentials are never stored in the browser." />
       {admin ? (
         <Card className="max-w-lg space-y-3">
           {save.error ? (

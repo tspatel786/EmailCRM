@@ -6,6 +6,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { parseCsv, parseWorkbook } from "../lib/export";
 import { Button, Card, Empty, PageHeader, Select } from "../components/ui";
+import { FileSpreadsheet as FileSpreadsheetIcon } from "lucide-react";
 
 export function ImportExcelPage() {
   const { org, user } = useSession();
@@ -191,7 +192,7 @@ export function ImportExcelPage() {
   return (
     <div>
       <PageHeader
-        title="Import Excel / CSV"
+        title="Import Excel / CSV" icon={<FileSpreadsheetIcon size={20} />}
         subtitle="Map columns, preview validation, then import contacts for automated 90/day email delivery."
       />
 

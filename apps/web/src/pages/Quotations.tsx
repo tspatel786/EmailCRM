@@ -10,6 +10,8 @@ import { supabase } from "../lib/supabase";
 import { money, fmtDateTime } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
+import { Receipt as ReceiptIcon } from "lucide-react";
+import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 type Form = z.infer<typeof quotationFormSchema>;
 
@@ -334,7 +336,7 @@ export function QuotationsPage() {
   return (
     <div>
       <PageHeader
-        title="Quotations"
+        title="Quotations" icon={<ReceiptIcon size={20} />}
         subtitle="Quotations with line items, version history, and approval workflows."
         actions={
           <div className="flex items-center gap-2">
@@ -425,16 +427,16 @@ export function QuotationsPage() {
           </table></div>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <div className="mt-4 flex flex-col gap-3 border-t border-ink-100 pt-4 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
                 Page {page} of {totalPages} ({filtered.length} quotations)
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
+                  <ChevronLeftIcon size={15} /> Previous
                 </Button>
                 <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
+                  Next <ChevronRightIcon size={15} />
                 </Button>
               </div>
             </div>
@@ -443,7 +445,7 @@ export function QuotationsPage() {
       )}
 
       {/* Create Quotation Modal with Line Items Editor (H9) */}
-      <Modal open={open} title="New quotation" onClose={() => setOpen(false)}>
+      <Modal size="xl" open={open} title="New quotation" onClose={() => setOpen(false)}>
         <form
           className="space-y-4"
           onSubmit={form.handleSubmit(
@@ -539,7 +541,7 @@ export function QuotationsPage() {
       </Modal>
 
       {/* Version History Modal (H9) */}
-      <Modal open={Boolean(versionModalQuote)} title={`Version History: ${versionModalQuote?.title}`} onClose={() => setVersionModalQuote(null)}>
+      <Modal size="lg" open={Boolean(versionModalQuote)} title={`Version History: ${versionModalQuote?.title}`} onClose={() => setVersionModalQuote(null)}>
         <div className="space-y-4">
           {versions.data?.length === 0 ? (
             <p className="text-sm text-slate-500">No versions recorded.</p>
@@ -575,7 +577,7 @@ export function QuotationsPage() {
       </Modal>
 
       {/* New Revision / Version Modal (H9) */}
-      <Modal open={Boolean(newVersionModalQuote)} title={`New Revision: ${newVersionModalQuote?.title} (v${(newVersionModalQuote?.current_version || 1) + 1})`} onClose={() => setNewVersionModalQuote(null)}>
+      <Modal size="xl" open={Boolean(newVersionModalQuote)} title={`New Revision: ${newVersionModalQuote?.title} (v${(newVersionModalQuote?.current_version || 1) + 1})`} onClose={() => setNewVersionModalQuote(null)}>
         {newVersionModalQuote && (
           <div className="space-y-4">
             <div>
