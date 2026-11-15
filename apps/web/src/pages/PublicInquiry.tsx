@@ -367,37 +367,41 @@ export function PublicInquiryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:py-10">
-      <div className="mx-auto w-full max-w-lg space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+    <div className="relative min-h-screen bg-ink-50">
+      {/* Branded header band */}
+      <div className="absolute inset-x-0 top-0 h-56 bg-ink-950 sm:h-64" aria-hidden>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.18),transparent_55%)]" />
+      </div>
+      <div className="relative mx-auto w-full max-w-lg space-y-4 px-4 py-6 sm:py-10">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <img
               src="/logo.png"
               alt="S.M.Patel IT Hub"
-              className="h-9 w-9 rounded-xl bg-white p-1 shadow-sm object-contain"
+              className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-1 shadow-md ring-1 ring-white/10"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = "/favicon.png";
               }}
             />
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 font-['Space_Grotesk'] leading-tight">
-                {t.title}
-              </h1>
-              <p className="text-xs text-slate-500">S.M.Patel IT Hub</p>
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-lg font-bold leading-tight text-white sm:text-xl">{t.title}</h1>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-primary-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                S.M.Patel IT Hub
+              </p>
             </div>
           </div>
-          <Button
+          <button
             type="button"
-            variant="secondary"
-            className="px-3 py-1.5 text-xs"
+            className="min-h-9 shrink-0 rounded-lg border border-white/15 bg-white/5 px-3 text-xs font-semibold text-white transition hover:bg-white/10"
             onClick={() => setLang((prev) => (prev === "mr" ? "en" : "mr"))}
           >
             {t.toggleLabel}
-          </Button>
+          </button>
         </div>
 
         {submitted ? (
-          <Card className="text-center space-y-4 py-8">
+          <Card className="space-y-4 py-8 text-center shadow-pop">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xl font-bold">
               ✓
             </div>
@@ -417,7 +421,7 @@ export function PublicInquiryPage() {
             </div>
           </Card>
         ) : (
-          <Card>
+          <Card className="shadow-pop sm:p-6">
             <p className="mb-4 text-xs sm:text-sm text-slate-600">{t.subtitle}</p>
             <form
               className="space-y-3.5"
