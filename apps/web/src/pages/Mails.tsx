@@ -483,14 +483,14 @@ export function MailsPage() {
                       {initialsOf(selectedMessage.from_name || selectedMessage.from_email)}
                     </span>
                     <div className="min-w-0 space-y-1.5">
-                      <h2 className="break-words font-display text-lg font-bold leading-snug text-ink-900">
+                      <h2 className="max-w-full whitespace-normal break-words font-display text-lg font-bold leading-snug text-ink-900 [word-break:normal] [writing-mode:horizontal-tb]">
                         {selectedMessage.subject || "(No Subject)"}
                       </h2>
-                      <p className="text-sm text-ink-600">
+                      <p className="max-w-full whitespace-normal text-sm text-ink-600 [word-break:normal] [writing-mode:horizontal-tb]">
                         <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name}{" "}
                         <span className="break-words [overflow-wrap:anywhere]">&lt;{selectedMessage.from_email}&gt;</span>
                       </p>
-                      <p className="text-sm text-ink-500">
+                      <p className="max-w-full whitespace-normal text-sm text-ink-500 [word-break:normal] [writing-mode:horizontal-tb]">
                         <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name}{" "}
                         <span className="break-words [overflow-wrap:anywhere]">&lt;{selectedMessage.to_email}&gt;</span>
                       </p>
@@ -542,7 +542,7 @@ export function MailsPage() {
                       srcDoc={selectedMessage.body_html}
                     />
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800">{selectedMessage.body_text}</pre>
+                    <pre className="max-w-full whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800 [overflow-wrap:break-word] [word-break:normal]">{selectedMessage.body_text}</pre>
                   )}
                 </div>
               </div>
