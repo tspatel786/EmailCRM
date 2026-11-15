@@ -47,8 +47,17 @@ Deno.serve(async (req: Request) => {
     return json({ error: "forbidden" }, 403);
   }
 
+  // Send invitees to the production app to set their password. Without an explicit
+  // redirectTo, Supabase falls back to the project's Site URL (which may be a dev URL).
+  // The target must also be listed in Auth > URL Configuration > Redirect URLs.
+  const configuredUrl = (Deno.env.get("APP_PUBLIC_URL") ?? "").trim().replace(/\/+$/, "");
+  const appUrl = configuredUrl && !/localhost|127\.0\.0\.1/.test(configuredUrl)
+    ? configuredUrl
+    : "https://sales.smpatelithub.in";
+
   const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName },
+    redirectTo: `${appUrl}/reset-password`,
   });
   if (inviteErr && !inviteErr.message.toLowerCase().includes("already")) {
     return json({ error: "invite_failed", detail: inviteErr.message }, 400);
