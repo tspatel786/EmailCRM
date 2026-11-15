@@ -14,16 +14,6 @@ import { Kanban as KanbanIcon } from "lucide-react";
 const STAGES = ["new_lead", "contacted", "qualified", "proposal_sent", "negotiation", "won", "lost"] as const;
 type Form = z.infer<typeof dealFormSchema>;
 
-const STAGE_DOT: Record<string, string> = {
-  new_lead: "bg-ink-400",
-  contacted: "bg-sky-500",
-  qualified: "bg-violet-500",
-  proposal_sent: "bg-primary-400",
-  negotiation: "bg-primary-600",
-  won: "bg-emerald-500",
-  lost: "bg-rose-500",
-};
-
 export function DealsPage() {
   const { org, user } = useSession();
   const writable = canWrite(org?.role);
@@ -185,60 +175,43 @@ export function DealsPage() {
         </div>
       ) : null}
       {mode === "kanban" ? (
-        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
-          {STAGES.map((stage) => {
-            const items = (list.data ?? []).filter((d) => d.stage === stage);
-            const total = items.reduce((sum, d) => sum + Number(d.estimated_value || 0), 0);
-            return (
-              <div key={stage} className="flex w-[280px] shrink-0 snap-start flex-col rounded-card border border-ink-200/70 bg-ink-100/60">
-                <div className="flex items-center justify-between gap-2 border-b border-ink-200/70 px-3 py-2.5">
-                  <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold capitalize text-ink-800">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${STAGE_DOT[stage] ?? "bg-ink-400"}`} />
-                    <span className="truncate">{stage.replaceAll("_", " ")}</span>
-                    <span className="rounded-full bg-white px-1.5 text-2xs font-semibold text-ink-500 ring-1 ring-ink-200">{items.length}</span>
-                  </h3>
-                  <span className="shrink-0 text-xs font-medium tabular-nums text-ink-500">{money(total)}</span>
-                </div>
-                <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
-                  {items.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-ink-300 px-3 py-6 text-center text-xs text-ink-400">No deals</p>
-                  ) : null}
-                  {items.map((d) => (
-                    <div key={d.id} className="rounded-lg border border-ink-200/70 bg-white p-3 text-sm shadow-card transition-shadow hover:shadow-card-hover">
-                      <p className="line-clamp-2 font-semibold text-ink-900">{d.title}</p>
-                      <p className="mt-1 font-display text-base font-bold tabular-nums text-ink-800">{money(Number(d.estimated_value), d.currency)}</p>
-                      {writable && stage !== "won" && stage !== "lost" ? (
-                        <Select
-                          className="mt-2.5 min-h-9 py-1.5 text-xs capitalize"
-                          aria-label={`Move ${d.title} to stage`}
-                          value={d.stage}
-                          disabled={move.isPending}
-                          onChange={(e) => {
-                            const nextStage = e.target.value;
-                            if (nextStage === "lost") {
-                              move.reset();
-                              setLossModal({ id: d.id, stage: "lost" });
-                              setLossReason("");
-                              return;
-                            }
-                            move.mutate({ id: d.id, stage: nextStage });
-                          }}
-                        >
-                          {STAGES.map((s) => (
-                            <option key={s}>{s}</option>
-                          ))}
-                        </Select>
-                      ) : (
-                        <div className="mt-2.5">
-                          <Badge tone={d.stage === "won" ? "green" : d.stage === "lost" ? "rose" : "slate"}>{d.stage}</Badge>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {STAGES.map((stage) => (
+            <div key={stage} className="w-64 shrink-0 rounded-xl bg-slate-100 p-2">
+              <h3 className="mb-2 px-1 text-sm font-medium capitalize">{stage.replaceAll("_", " ")}</h3>
+              {(list.data ?? [])
+                .filter((d) => d.stage === stage)
+                .map((d) => (
+                  <div key={d.id} className="mb-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+                    <p className="font-medium">{d.title}</p>
+                    <p className="text-slate-500">{money(Number(d.estimated_value), d.currency)}</p>
+                    {writable && stage !== "won" && stage !== "lost" ? (
+                      <Select
+                        className="mt-2"
+                        value={d.stage}
+                        disabled={move.isPending}
+                        onChange={(e) => {
+                          const nextStage = e.target.value;
+                          if (nextStage === "lost") {
+                            move.reset();
+                            setLossModal({ id: d.id, stage: "lost" });
+                            setLossReason("");
+                            return;
+                          }
+                          move.mutate({ id: d.id, stage: nextStage });
+                        }}
+                      >
+                        {STAGES.map((s) => (
+                          <option key={s}>{s}</option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <Badge>{d.stage}</Badge>
+                    )}
+                  </div>
+                ))}
+            </div>
+          ))}
         </div>
       ) : (
         <Card>

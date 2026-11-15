@@ -123,19 +123,6 @@ tbody tr:last-child td {
   border-bottom: none !important;
 }
 
-/* Row actions: compact buttons that stay on one line. */
-tbody td:has(> button) {
-  white-space: nowrap;
-}
-tbody td > button {
-  min-height: 2rem !important;
-  padding: 0.3rem 0.65rem !important;
-  font-size: 0.8125rem !important;
-}
-tbody td > button + button {
-  margin-left: 0.25rem;
-}
-
 /* Horizontal scroll container for tables: keeps the page itself from scrolling
    sideways on small screens. Applied via <TableWrap> or .table-scroll. */
 .table-scroll {
