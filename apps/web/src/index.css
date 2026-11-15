@@ -2,42 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* Design tokens (CSS variables) — mirrored in tailwind.config.js       */
+/* ------------------------------------------------------------------ */
 :root {
   color-scheme: light;
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-primary: #f59e0b;
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+  --sidebar-width: 264px;
+  --sidebar-collapsed: 76px;
+  --topbar-height: 64px;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #f8fafc;
-  color: #0f172a;
-  font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Components with their own focus ring opt out of the default outline. */
+  .focus-visible\:ring-4:focus-visible {
+    outline: none;
+  }
+
+  /* iOS zooms the page when focusing inputs smaller than 16px — avoid it on phones. */
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
-/* Custom smooth scrollbars */
+/* Thin, unobtrusive scrollbars */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+  background-clip: content-box;
 }
 
-:focus-visible {
-  outline: 2px solid #f59e0b;
-  outline-offset: 2px;
-}
-
-/* Polished SaaS Table Aesthetics across entire CRM */
+/* ------------------------------------------------------------------ */
+/* Tables — consistent SaaS table styling across the whole CRM          */
+/* ------------------------------------------------------------------ */
 table {
   border-collapse: separate;
   border-spacing: 0;
@@ -45,106 +90,158 @@ table {
 }
 
 thead th {
-  padding: 0.75rem 1rem !important;
-  font-size: 0.75rem !important;
+  padding: 0.7rem 1rem !important;
+  font-size: 0.6875rem !important;
   font-weight: 600 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
+  letter-spacing: 0.06em !important;
   color: #64748b !important;
   background-color: #f8fafc !important;
+  border-top: 1px solid #eef2f6;
   border-bottom: 1px solid #e2e8f0 !important;
-}
-
-thead th:first-child {
-  border-top-left-radius: 0.75rem;
-}
-thead th:last-child {
-  border-top-right-radius: 0.75rem;
+  text-align: left;
+  white-space: nowrap;
 }
 
 tbody tr {
-  transition: all 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out;
 }
 
 tbody tr:hover {
-  background-color: #f8fafc !important;
+  background-color: #fafbfc !important;
 }
 
 tbody td {
-  padding: 0.85rem 1rem !important;
+  padding: 0.8rem 1rem !important;
   border-bottom: 1px solid #f1f5f9 !important;
   vertical-align: middle;
+  font-size: 0.875rem;
+  color: #334155;
 }
 
 tbody tr:last-child td {
   border-bottom: none !important;
 }
 
-/* Card elevation classes */
+/* Horizontal scroll container for tables: keeps the page itself from scrolling
+   sideways on small screens. Applied via <TableWrap> or .table-scroll. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+.table-scroll > table {
+  min-width: 640px;
+}
+.table-scroll thead th:first-child,
+.table-scroll tbody td:first-child {
+  padding-left: 1rem !important;
+}
+.table-scroll thead th:last-child,
+.table-scroll tbody td:last-child {
+  padding-right: 1rem !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Controls                                                             */
+/* ------------------------------------------------------------------ */
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 16px 16px;
+}
+
+/* Filter/search toolbar: stacked on phones, a single wrapping row from 640px. */
+.crm-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+@media (min-width: 640px) {
+  .crm-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .crm-toolbar > select {
+    width: auto;
+    min-width: 170px;
+  }
+  .crm-toolbar > input,
+  .crm-toolbar > .crm-search {
+    max-width: 22rem;
+  }
+  .crm-toolbar > .crm-search {
+    flex: 1 1 16rem;
+  }
+}
+
+/* Modal bodies: keep form grids from overflowing on narrow phones. */
+.modal-body form,
+.modal-body > div {
+  min-width: 0;
+}
+
+/* Loading skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #eef2f6;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: skeletonShimmer 1.4s infinite;
+}
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Card elevation (used by the dashboard) */
 .card-hover-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .card-hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 25px -8px rgba(15, 23, 42, 0.12), 0 4px 10px -6px rgba(15, 23, 42, 0.05);
 }
 
-/* Dynamic ambient animations for Login & UI */
+/* ------------------------------------------------------------------ */
+/* Ambient animations (Login / Forgot password)                         */
+/* ------------------------------------------------------------------ */
 @keyframes floatSlow {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  50% {
-    transform: translate(35px, -30px) scale(1.1);
-  }
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(35px, -30px) scale(1.1); }
 }
-
 @keyframes floatReverse {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  50% {
-    transform: translate(-40px, 25px) scale(0.95);
-  }
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-40px, 25px) scale(0.95); }
 }
-
 @keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.35;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(1.06);
-  }
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
 }
-
 @keyframes shimmerEffect {
-  0% {
-    transform: translateX(-150%) skewX(-20deg);
-  }
-  100% {
-    transform: translateX(250%) skewX(-20deg);
-  }
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
 }
 
-.animate-float-slow {
-  animation: floatSlow 14s ease-in-out infinite;
-}
-
-.animate-float-reverse {
-  animation: floatReverse 18s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 5s ease-in-out infinite;
-}
+.animate-float-slow { animation: floatSlow 14s ease-in-out infinite; }
+.animate-float-reverse { animation: floatReverse 18s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulseGlow 5s ease-in-out infinite; }
 
 .shimmer-btn-fx {
   position: relative;
   overflow: hidden;
 }
-
 .shimmer-btn-fx::after {
   content: "";
   position: absolute;
@@ -152,13 +249,18 @@ tbody tr:last-child td {
   left: 0;
   width: 40%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
   animation: shimmerEffect 3s infinite;
 }
 
-
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

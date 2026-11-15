@@ -198,7 +198,7 @@ export function FollowUpsPage() {
         <Empty title="No tasks in this view" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Title</th>
@@ -234,7 +234,7 @@ export function FollowUpsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       <Modal open={open} title="New task" onClose={() => setOpen(false)}>

@@ -71,7 +71,7 @@ export function TeamPage() {
         <Empty title="No members visible" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Name</th>
@@ -88,7 +88,7 @@ export function TeamPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       <Modal open={open} title="Invite member" onClose={() => setOpen(false)}>

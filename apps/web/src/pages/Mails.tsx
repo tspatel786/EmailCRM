@@ -5,7 +5,6 @@ import {
   Send,
   Clock,
   AlertTriangle,
-  Search,
   PenSquare,
   RefreshCw,
   Mail as MailIcon,
@@ -18,11 +17,12 @@ import {
   ExternalLink,
   User,
   Building,
+  ArrowLeft,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
-import { Button, Input, Modal, Select, Textarea } from "../components/ui";
+import { Button, Empty, Input, Modal, PageHeader, SearchInput, Select, TableSkeleton, Textarea } from "../components/ui";
 
 type Folder = "inbox" | "sent" | "queued" | "failed";
 
@@ -59,6 +59,8 @@ export function MailsPage() {
 
   const [activeFolder, setActiveFolder] = useState<Folder>("inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Small screens show either the list or the reader; purely presentational.
+  const [readerOpen, setReaderOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyOpen, setReplyOpen] = useState(false);
@@ -261,322 +263,272 @@ export function MailsPage() {
     setReplyOpen(true);
   };
 
+  const folders: { key: Folder; label: string; icon: typeof Inbox; count?: number }[] = [
+    { key: "inbox", label: "Inbox", icon: Inbox, count: unreadCountQuery.data ?? 0 },
+    { key: "sent", label: "Sent", icon: Send },
+    { key: "queued", label: "Queued", icon: Clock },
+    { key: "failed", label: "Failed / Bounced", icon: AlertTriangle },
+  ];
+
+  const statusTone = (s: Message["status"]) =>
+    s === "opened" || s === "clicked"
+      ? "bg-violet-50 text-violet-700 ring-violet-200"
+      : s === "delivered" || s === "sent"
+        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+        : s === "received"
+          ? "bg-sky-50 text-sky-700 ring-sky-200"
+          : s === "queued"
+            ? "bg-primary-50 text-primary-800 ring-primary-200"
+            : "bg-rose-50 text-rose-700 ring-rose-200";
+
+  const initialsOf = (name: string) =>
+    name
+      .replace(/<.*>/, "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-slate-50">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <div className="flex items-center space-x-3">
-          <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
-            <MailIcon className="h-5 w-5" />
+    <div className="flex flex-col">
+      {/* Page header */}
+      <PageHeader
+        title="Mails & Inbound Inbox"
+        subtitle="Live Webmail, incoming client replies, and sent dispatch"
+        icon={<MailIcon size={20} />}
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ["messages", org?.organization_id] });
+                qc.invalidateQueries({ queryKey: ["mails-unread", org?.organization_id] });
+              }}
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setComposeTo("");
+                setComposeContactId("");
+                setComposeSubject("");
+                setComposeBody("");
+                setComposeError("");
+                setComposeSuccess("");
+                setComposeOpen(true);
+              }}
+            >
+              <PenSquare size={16} />
+              Compose Mail
+            </Button>
+          </>
+        }
+      />
+
+      {/* Mail client */}
+      <div className="flex min-h-[560px] flex-col overflow-hidden rounded-card border border-ink-200/80 bg-white shadow-card lg:h-[calc(100dvh-var(--topbar-height)-11rem)] lg:flex-row">
+        {/* Folders: horizontal tabs below lg, sidebar column on lg+ */}
+        <nav
+          aria-label="Mail folders"
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-ink-100 p-2 lg:w-56 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r lg:p-3"
+        >
+          {folders.map((f) => {
+            const active = activeFolder === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => {
+                  setActiveFolder(f.key);
+                  setSelectedId(null);
+                  setReaderOpen(false);
+                }}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-10 shrink-0 items-center justify-between gap-3 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors lg:w-full ${
+                  active ? "bg-primary-50 text-primary-800 ring-1 ring-inset ring-primary-200" : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <f.icon className={`h-4 w-4 ${active ? "text-primary-600" : "text-ink-400"}`} />
+                  {f.label}
+                </span>
+                {f.count ? (
+                  <span className="rounded-full bg-primary-500 px-2 py-0.5 text-2xs font-bold text-ink-950">{f.count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+          <div className="mt-auto hidden border-t border-ink-100 px-2 pt-4 text-xs text-ink-400 lg:block">
+            Connected: <span className="font-semibold text-ink-600">Resend HTTPS</span>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">Mails & Inbound Inbox</h1>
-            <p className="text-xs text-slate-500">Live Webmail, incoming client replies, and sent dispatch</p>
-          </div>
-        </div>
+        </nav>
 
-        <div className="flex items-center space-x-3">
-          <Button
-            type="button"
-            variant="secondary"
-            className="py-1 px-3 text-xs"
-            onClick={() => {
-              qc.invalidateQueries({ queryKey: ["messages", org?.organization_id] });
-              qc.invalidateQueries({ queryKey: ["mails-unread", org?.organization_id] });
-            }}
-          >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Refresh
-          </Button>
-
-          <Button
-            type="button"
-            className="py-1 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={() => {
-              setComposeTo("");
-              setComposeContactId("");
-              setComposeSubject("");
-              setComposeBody("");
-              setComposeError("");
-              setComposeSuccess("");
-              setComposeOpen(true);
-            }}
-          >
-            <PenSquare className="mr-1.5 h-4 w-4" />
-            Compose Mail
-          </Button>
-        </div>
-      </div>
-
-      {/* 3-Column Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Column: Folders */}
-        <div className="w-56 border-r border-slate-200 bg-white p-3 flex flex-col space-y-1">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFolder("inbox");
-              setSelectedId(null);
-            }}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              activeFolder === "inbox"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Inbox className="h-4 w-4" />
-              <span>Inbox</span>
-            </div>
-            {(unreadCountQuery.data ?? 0) > 0 && (
-              <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
-                {unreadCountQuery.data}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFolder("sent");
-              setSelectedId(null);
-            }}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              activeFolder === "sent"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Send className="h-4 w-4" />
-              <span>Sent</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFolder("queued");
-              setSelectedId(null);
-            }}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              activeFolder === "queued"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Clock className="h-4 w-4" />
-              <span>Queued</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFolder("failed");
-              setSelectedId(null);
-            }}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              activeFolder === "failed"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <AlertTriangle className="h-4 w-4" />
-              <span>Failed / Bounced</span>
-            </div>
-          </button>
-
-          <div className="pt-4 mt-auto border-t border-slate-100 text-xs text-slate-400 px-2">
-            Connected: <span className="font-semibold text-slate-600">Resend HTTPS</span>
-          </div>
-        </div>
-
-        {/* Middle Column: Email List */}
-        <div className="w-80 md:w-96 border-r border-slate-200 bg-white flex flex-col">
-          {/* Search box */}
-          <div className="p-3 border-b border-slate-100">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search mail subject, sender..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none"
-              />
-            </div>
+        {/* Message list (hidden on small screens while reading) */}
+        <div
+          className={`min-h-0 flex-col border-ink-100 lg:flex lg:w-[340px] lg:shrink-0 lg:border-r xl:w-[380px] ${
+            readerOpen ? "hidden" : "flex flex-1 lg:flex-none"
+          }`}
+        >
+          <div className="border-b border-ink-100 p-3">
+            <SearchInput placeholder="Search mail subject, sender..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
 
-          {/* List items */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div className="min-h-0 flex-1 divide-y divide-ink-100 overflow-y-auto">
             {messagesQuery.isLoading ? (
-              <div className="p-8 text-center text-xs text-slate-400">Loading emails...</div>
+              <div className="p-4">
+                <TableSkeleton rows={6} />
+              </div>
             ) : filteredMessages.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                No emails in {activeFolder}
+              <div className="p-6">
+                <Empty title={`No emails in ${activeFolder}`} icon={<MailOpen size={20} />} />
               </div>
             ) : (
               filteredMessages.map((msg) => {
                 const isSelected = selectedMessage?.id === msg.id;
+                const who = activeFolder === "sent" ? `To: ${msg.to_name || msg.to_email}` : msg.from_name || msg.from_email;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={msg.id}
-                    onClick={() => handleSelect(msg)}
-                    className={`cursor-pointer p-3 transition ${
-                      isSelected
-                        ? "bg-indigo-50/70 border-l-4 border-indigo-600"
-                        : msg.is_read
-                        ? "hover:bg-slate-50"
-                        : "bg-slate-50/60 font-medium hover:bg-slate-100/80"
+                    onClick={() => {
+                      handleSelect(msg);
+                      setReaderOpen(true);
+                    }}
+                    aria-current={isSelected ? "true" : undefined}
+                    className={`relative flex w-full gap-3 px-4 py-3 text-left transition-colors focus-visible:bg-ink-50 focus-visible:outline-none ${
+                      isSelected ? "bg-primary-50/60" : msg.is_read ? "hover:bg-ink-50" : "bg-sky-50/40 hover:bg-sky-50/70"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className={`truncate max-w-[170px] ${!msg.is_read ? "font-bold text-slate-900" : "text-slate-700"}`}>
-                        {activeFolder === "sent" ? `To: ${msg.to_name || msg.to_email}` : msg.from_name || msg.from_email}
-                      </span>
-                      <span className="text-[10px] text-slate-400 shrink-0">
-                        {new Date(msg.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
-                      </span>
-                    </div>
-
-                    <div className={`text-xs truncate ${!msg.is_read ? "font-semibold text-slate-900" : "text-slate-800"}`}>
-                      {msg.subject || "(No Subject)"}
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                      {msg.body_text || "No preview"}
-                    </div>
-
-                    <div className="flex items-center space-x-2 mt-2">
-                      <span
-                        className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                          msg.status === "opened"
-                            ? "bg-purple-100 text-purple-700"
-                            : msg.status === "delivered" || msg.status === "sent"
-                            ? "bg-green-100 text-green-700"
-                            : msg.status === "received"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {msg.status}
-                      </span>
-
-                      {msg.contacts && (
-                        <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                          • {msg.contacts.full_name}
+                    {isSelected ? <span className="absolute inset-y-0 left-0 w-[3px] bg-primary-500" aria-hidden /> : null}
+                    <span
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        msg.is_read ? "bg-ink-100 text-ink-500" : "bg-ink-900 text-white"
+                      }`}
+                      aria-hidden
+                    >
+                      {initialsOf(msg.to_name && activeFolder === "sent" ? msg.to_name : msg.from_name || msg.from_email)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className={`truncate text-sm ${!msg.is_read ? "font-semibold text-ink-900" : "text-ink-700"}`}>{who}</span>
+                        <span className="shrink-0 text-2xs text-ink-400">
+                          {new Date(msg.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
                         </span>
-                      )}
-                    </div>
-                  </div>
+                      </span>
+                      <span className={`mt-0.5 flex items-center gap-1.5 truncate text-sm ${!msg.is_read ? "font-semibold text-ink-900" : "text-ink-800"}`}>
+                        {!msg.is_read ? <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-label="Unread" /> : null}
+                        <span className="truncate">{msg.subject || "(No Subject)"}</span>
+                      </span>
+                      <span className="mt-0.5 line-clamp-1 text-xs text-ink-500">{msg.body_text || "No preview"}</span>
+                      <span className="mt-2 flex min-w-0 items-center gap-2">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold capitalize ring-1 ring-inset ${statusTone(msg.status)}`}>
+                          {msg.status}
+                        </span>
+                        {msg.contacts ? <span className="truncate text-2xs text-ink-400">• {msg.contacts.full_name}</span> : null}
+                      </span>
+                    </span>
+                  </button>
                 );
               })
             )}
           </div>
         </div>
 
-        {/* Right Column: Message Reading Pane */}
-        <div className="flex-1 bg-white flex flex-col overflow-hidden">
+        {/* Reading pane (full width on small screens when a message is open) */}
+        <div className={`min-h-0 min-w-0 flex-1 flex-col lg:flex ${readerOpen ? "flex" : "hidden"}`}>
           {selectedMessage ? (
-            <div className="flex-1 flex flex-col h-full overflow-y-auto">
-              {/* Header / Actions */}
-              <div className="border-b border-slate-200 p-5 bg-white">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h2 className="text-base font-bold text-slate-900">
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="border-b border-ink-100 p-4 sm:p-5">
+                <button
+                  type="button"
+                  onClick={() => setReaderOpen(false)}
+                  className="-ml-1 mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-ink-600 hover:bg-ink-100 lg:hidden"
+                >
+                  <ArrowLeft size={16} /> Back to {activeFolder}
+                </button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1.5">
+                    <h2 className="break-words font-display text-lg font-bold leading-snug text-ink-900">
                       {selectedMessage.subject || "(No Subject)"}
                     </h2>
-                    <div className="flex items-center space-x-2 text-xs text-slate-600">
-                      <span>
-                        <strong className="text-slate-800">From:</strong> {selectedMessage.from_name} &lt;{selectedMessage.from_email}&gt;
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      <strong className="text-slate-700">To:</strong> {selectedMessage.to_name} &lt;{selectedMessage.to_email}&gt;
-                    </div>
+                    <p className="break-all text-sm text-ink-600">
+                      <span className="font-semibold text-ink-800">From:</span> {selectedMessage.from_name} &lt;{selectedMessage.from_email}&gt;
+                    </p>
+                    <p className="break-all text-sm text-ink-500">
+                      <span className="font-semibold text-ink-700">To:</span> {selectedMessage.to_name} &lt;{selectedMessage.to_email}&gt;
+                    </p>
                   </div>
-
-                  <div className="flex items-center space-x-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <Button
                       type="button"
                       variant="secondary"
-                      className="py-1 px-2 text-xs"
+                      aria-label={selectedMessage.is_starred ? "Unstar" : "Star"}
+                      title={selectedMessage.is_starred ? "Unstar" : "Star"}
+                      className="px-3"
                       onClick={() => toggleStar.mutate({ id: selectedMessage.id, starred: selectedMessage.is_starred })}
                     >
-                      <Star className={`h-4 w-4 ${selectedMessage.is_starred ? "fill-amber-400 text-amber-500" : "text-slate-400"}`} />
+                      <Star className={`h-4 w-4 ${selectedMessage.is_starred ? "fill-primary-400 text-primary-500" : "text-ink-400"}`} />
                     </Button>
-
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="py-1 px-3 text-xs"
-                      onClick={handleOpenReply}
-                    >
-                      <Reply className="mr-1.5 h-3.5 w-3.5" />
+                    <Button type="button" variant="secondary" onClick={handleOpenReply}>
+                      <Reply size={16} />
                       Reply
                     </Button>
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400 border-t border-slate-100 pt-2">
-                  <span>
-                    Sent: {new Date(selectedMessage.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
-                  <div className="flex items-center space-x-3">
-                    {selectedMessage.contacts && (
-                      <Link
-                        to={`/app/contacts/${selectedMessage.contacts.id}`}
-                        className="flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
-                      >
-                        <User className="mr-1 h-3 w-3" />
-                        View Contact ({selectedMessage.contacts.full_name})
-                        <ExternalLink className="ml-1 h-2.5 w-2.5" />
-                      </Link>
-                    )}
-                  </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3 text-xs text-ink-500">
+                  <span>Sent: {new Date(selectedMessage.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
+                  {selectedMessage.contacts ? (
+                    <Link
+                      to={`/app/contacts/${selectedMessage.contacts.id}`}
+                      className="inline-flex items-center gap-1 font-medium text-primary-700 hover:text-primary-800"
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      View Contact ({selectedMessage.contacts.full_name})
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : null}
                 </div>
               </div>
 
-              {/* Message Content Body */}
-              <div className="flex-1 p-6 overflow-y-auto">
-                {selectedMessage.body_html ? (
-                  // Inbound HTML comes from arbitrary external senders: render it in a fully
-                  // sandboxed iframe (no scripts, no same-origin access to the CRM session).
-                  <iframe
-                    title="Message body"
-                    sandbox=""
-                    referrerPolicy="no-referrer"
-                    className="h-full min-h-[400px] w-full rounded border-0 bg-white"
-                    srcDoc={selectedMessage.body_html}
-                  />
-                ) : (
-                  <pre className="whitespace-pre-wrap font-sans text-sm text-slate-800">
-                    {selectedMessage.body_text}
-                  </pre>
-                )}
+              <div className="min-h-0 flex-1 overflow-y-auto bg-ink-50/40 p-3 sm:p-5">
+                <div className="h-full rounded-xl border border-ink-100 bg-white p-4 sm:p-5">
+                  {selectedMessage.body_html ? (
+                    // Inbound HTML comes from arbitrary external senders: render it in a fully
+                    // sandboxed iframe (no scripts, no same-origin access to the CRM session).
+                    <iframe
+                      title="Message body"
+                      sandbox=""
+                      referrerPolicy="no-referrer"
+                      className="h-full min-h-[400px] w-full rounded border-0 bg-white"
+                      srcDoc={selectedMessage.body_html}
+                    />
+                  ) : (
+                    <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800">{selectedMessage.body_text}</pre>
+                  )}
+                </div>
               </div>
 
-              {/* Bottom Quick Reply Bar */}
-              <div className="border-t border-slate-200 bg-slate-50 p-4">
-                <Button
+              <div className="border-t border-ink-100 p-3 sm:p-4">
+                <button
                   type="button"
-                  variant="secondary"
-                  className="w-full justify-start text-xs text-slate-500 bg-white"
                   onClick={handleOpenReply}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-control border border-ink-200 bg-white px-4 text-left text-sm text-ink-500 transition hover:border-ink-300 hover:text-ink-700"
                 >
-                  <Reply className="mr-2 h-3.5 w-3.5" />
-                  Click here to reply to {selectedMessage.from_email}...
-                </Button>
+                  <Reply className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Click here to reply to {selectedMessage.from_email}...</span>
+                </button>
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center">
-              <MailOpen className="h-12 w-12 text-slate-300 mb-3" />
-              <p className="text-sm font-medium text-slate-600">Select an email to read</p>
-              <p className="text-xs text-slate-400 mt-1">Choose a message from the list on the left</p>
+            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+              <MailOpen className="mb-3 h-12 w-12 text-ink-300" />
+              <p className="text-sm font-medium text-ink-600">Select an email to read</p>
+              <p className="mt-1 text-xs text-ink-400">Choose a message from the list</p>
             </div>
           )}
         </div>
@@ -584,6 +536,7 @@ export function MailsPage() {
 
       {/* Compose & Reply Modal */}
       <Modal
+        size="lg"
         open={composeOpen || replyOpen}
         title={replyOpen ? `Reply to ${composeTo}` : "Compose New Email"}
         onClose={() => {
@@ -593,12 +546,12 @@ export function MailsPage() {
       >
           <form onSubmit={handleSendCompose} className="space-y-4">
             {composeError && (
-              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">
+              <div role="alert" className="rounded-control border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
                 {composeError}
               </div>
             )}
             {composeSuccess && (
-              <div className="rounded-lg bg-green-50 p-3 text-xs text-green-700 flex items-center">
+              <div role="status" className="flex items-center rounded-control border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
                 <CheckCircle2 className="h-4 w-4 mr-1.5" />
                 {composeSuccess}
               </div>
@@ -606,7 +559,7 @@ export function MailsPage() {
 
             {!replyOpen && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="mb-1.5 block text-xs font-semibold text-ink-700">
                   Select CRM Contact (Optional)
                 </label>
                 <Select
@@ -629,7 +582,7 @@ export function MailsPage() {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
                 To Email *
               </label>
               <Input
@@ -642,7 +595,7 @@ export function MailsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
                 Subject *
               </label>
               <Input
@@ -654,7 +607,7 @@ export function MailsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
                 Message *
               </label>
               <Textarea
@@ -666,16 +619,15 @@ export function MailsPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-              <span className="text-[11px] text-slate-400">
-                From: <span className="font-medium text-slate-600">sales@updates.smpatelithub.in</span>
+            <div className="flex flex-col gap-3 border-t border-ink-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-ink-500">
+                From: <span className="font-medium text-ink-700">sales@updates.smpatelithub.in</span>
               </span>
 
-              <div className="flex space-x-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="secondary"
-                  className="py-1 px-3 text-xs"
                   onClick={() => {
                     setComposeOpen(false);
                     setReplyOpen(false);
@@ -683,11 +635,8 @@ export function MailsPage() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={composeSending}
-                  className="py-1 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
+                <Button type="submit" disabled={composeSending}>
+                  <Send size={15} />
                   {composeSending ? "Sending..." : "Send Email"}
                 </Button>
               </div>

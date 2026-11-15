@@ -7,7 +7,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadMultiSheetWorkbook } from "../lib/export";
 import { money } from "../lib/format";
-import { Button, Card, Empty, PageHeader, Spinner } from "../components/ui";
+import { Button, Card, CardHeader, Empty, ErrorBox, Input, PageHeader, Skeleton, StatCard, TableWrap, type BadgeTone } from "../components/ui";
 import {
   Users,
   CheckCircle2,
@@ -24,6 +24,9 @@ import {
   Trophy,
   XCircle,
   TrendingUp,
+  Download,
+  LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 
 type Counts = {
@@ -156,168 +159,216 @@ export function DashboardPage() {
 
   const c = query.data?.counts;
 
-  const tiles = c
+  type Tile = { label: string; value: string | number; icon: typeof Users; tone: BadgeTone };
+  const groups: { title: string; tiles: Tile[] }[] = c
     ? [
-        { label: "Total Leads", value: c.leads, icon: Users, color: "text-blue-600 bg-blue-50 border-blue-200" },
-        { label: "Active Customers", value: c.customers, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-        { label: "New Leads (Month)", value: c.newThisMonth, icon: UserPlus, color: "text-amber-600 bg-amber-50 border-amber-200" },
-        { label: "Calls Logged Today", value: c.callsToday, icon: PhoneCall, color: "text-teal-600 bg-teal-50 border-teal-200" },
-        { label: "Calls This Month", value: c.callsMonth, icon: Phone, color: "text-cyan-600 bg-cyan-50 border-cyan-200" },
-        { label: "Follow-ups Today", value: c.followToday, icon: Clock, color: "text-amber-600 bg-amber-50 border-amber-200" },
-        { label: "Overdue Tasks", value: c.followOverdue, icon: AlertTriangle, color: "text-rose-600 bg-rose-50 border-rose-200" },
-        { label: "Emails Queued", value: c.queued, icon: Send, color: "text-sky-600 bg-sky-50 border-sky-200" },
-        { label: "SMTP Accepted", value: c.sent, icon: MailCheck, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-        { label: "Emails Failed", value: c.failed, icon: AlertCircle, color: "text-rose-600 bg-rose-50 border-rose-200" },
-        { label: "Upcoming Meetings", value: c.meetings, icon: Calendar, color: "text-purple-600 bg-purple-50 border-purple-200" },
-        { label: "Open Quotations", value: c.openQuotes, icon: Receipt, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-        { label: "Won Deals", value: c.won, icon: Trophy, color: "text-amber-600 bg-amber-50 border-amber-200" },
-        { label: "Lost Deals", value: c.lost, icon: XCircle, color: "text-slate-600 bg-slate-50 border-slate-200" },
-        { label: "Pipeline Value", value: money(c.pipeline), icon: TrendingUp, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+        {
+          title: "Leads & customers",
+          tiles: [
+            { label: "Total Leads", value: c.leads, icon: Users, tone: "blue" },
+            { label: "Active Customers", value: c.customers, icon: CheckCircle2, tone: "green" },
+            { label: "New Leads (Month)", value: c.newThisMonth, icon: UserPlus, tone: "amber" },
+          ],
+        },
+        {
+          title: "Calls & follow-ups",
+          tiles: [
+            { label: "Calls Logged Today", value: c.callsToday, icon: PhoneCall, tone: "teal" },
+            { label: "Calls This Month", value: c.callsMonth, icon: Phone, tone: "teal" },
+            { label: "Follow-ups Today", value: c.followToday, icon: Clock, tone: "amber" },
+            { label: "Overdue Tasks", value: c.followOverdue, icon: AlertTriangle, tone: "rose" },
+            { label: "Upcoming Meetings", value: c.meetings, icon: Calendar, tone: "violet" },
+          ],
+        },
+        {
+          title: "Email delivery",
+          tiles: [
+            { label: "Emails Queued", value: c.queued, icon: Send, tone: "blue" },
+            { label: "SMTP Accepted", value: c.sent, icon: MailCheck, tone: "green" },
+            { label: "Emails Failed", value: c.failed, icon: AlertCircle, tone: "rose" },
+          ],
+        },
+        {
+          title: "Sales",
+          tiles: [
+            { label: "Open Quotations", value: c.openQuotes, icon: Receipt, tone: "violet" },
+            { label: "Won Deals", value: c.won, icon: Trophy, tone: "green" },
+            { label: "Lost Deals", value: c.lost, icon: XCircle, tone: "slate" },
+            { label: "Pipeline Value", value: money(c.pipeline), icon: TrendingUp, tone: "amber" },
+          ],
+        },
       ]
     : [];
+
+  function exportAnalytics() {
+    if (!c) return;
+    const kpis = [
+      { "Sr No": 1, "Metric": "Total Leads", "Value": c.leads, "Period": `${from} to ${to}` },
+      { "Sr No": 2, "Metric": "Active Customers", "Value": c.customers, "Period": `${from} to ${to}` },
+      { "Sr No": 3, "Metric": "New Leads This Month", "Value": c.newThisMonth, "Period": "Current Month" },
+      { "Sr No": 4, "Metric": "Calls Logged Today", "Value": c.callsToday, "Period": "Today" },
+      { "Sr No": 5, "Metric": "Calls Logged This Month", "Value": c.callsMonth, "Period": "Current Month" },
+      { "Sr No": 6, "Metric": "Follow-ups Due Today", "Value": c.followToday, "Period": "Today" },
+      { "Sr No": 7, "Metric": "Overdue Follow-ups", "Value": c.followOverdue, "Period": "All Overdue" },
+      { "Sr No": 8, "Metric": "Emails Queued (Outbox)", "Value": c.queued, "Period": "Live Queue" },
+      { "Sr No": 9, "Metric": "Emails Accepted (SMTP)", "Value": c.sent, "Period": `${from} to ${to}` },
+      { "Sr No": 10, "Metric": "Emails Delivery Failed", "Value": c.failed, "Period": `${from} to ${to}` },
+      { "Sr No": 11, "Metric": "Upcoming Meetings", "Value": c.meetings, "Period": "Scheduled" },
+      { "Sr No": 12, "Metric": "Open Quotations", "Value": c.openQuotes, "Period": "Active" },
+      { "Sr No": 13, "Metric": "Deals Won", "Value": c.won, "Period": `${from} to ${to}` },
+      { "Sr No": 14, "Metric": "Deals Lost", "Value": c.lost, "Period": `${from} to ${to}` },
+      { "Sr No": 15, "Metric": "Total Pipeline Value", "Value": money(c.pipeline), "Period": "Open Pipeline" },
+    ];
+    const sources = (query.data?.sources ?? []).map((s, idx) => ({
+      "Sr No": idx + 1,
+      "Lead Source": s.name || "Unknown",
+      "Total Leads": s.n,
+    }));
+    const statuses = (query.data?.statuses ?? []).map((s, idx) => ({
+      "Sr No": idx + 1,
+      "Lead Status": s.name ? s.name.toUpperCase().replace("_", " ") : "Unknown",
+      "Count": s.n,
+    }));
+    const team = (query.data?.people ?? []).map((p, idx) => ({
+      "Sr No": idx + 1,
+      "Team Member": p.name,
+      "Calls Completed": p.calls,
+    }));
+    downloadMultiSheetWorkbook(`SMPatel_Dashboard_${from}_to_${to}.xlsx`, [
+      { name: "KPI Summary", rows: kpis },
+      { name: "Lead Sources", rows: sources },
+      { name: "Lead Statuses", rows: statuses },
+      { name: "Team Activity", rows: team },
+    ]);
+  }
+
+  const chartAxis = { fontSize: 12, fill: "#64748b" };
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
         subtitle="Live figures from PostgreSQL via RLS. Email “sent” means SMTP accepted, not inbox delivery."
+        icon={<LayoutDashboard size={20} />}
         actions={
           <>
-            <input type="date" className="rounded-lg border px-2 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <input type="date" className="rounded-lg border px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <Input type="date" aria-label="From date" className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <span className="text-xs text-ink-400">to</span>
+              <Input type="date" aria-label="To date" className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
             {isAdmin ? (
-              <label className="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm">
-                <input type="checkbox" checked={myDataOnly} onChange={(e) => setMyDataOnly(e.target.checked)} />
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-ink-200 bg-white px-3 text-sm font-medium text-ink-700 shadow-sm transition hover:border-ink-300">
+                <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={myDataOnly} onChange={(e) => setMyDataOnly(e.target.checked)} />
                 My data only
               </label>
             ) : null}
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (!c) return;
-                const kpis = [
-                  { "Sr No": 1, "Metric": "Total Leads", "Value": c.leads, "Period": `${from} to ${to}` },
-                  { "Sr No": 2, "Metric": "Active Customers", "Value": c.customers, "Period": `${from} to ${to}` },
-                  { "Sr No": 3, "Metric": "New Leads This Month", "Value": c.newThisMonth, "Period": "Current Month" },
-                  { "Sr No": 4, "Metric": "Calls Logged Today", "Value": c.callsToday, "Period": "Today" },
-                  { "Sr No": 5, "Metric": "Calls Logged This Month", "Value": c.callsMonth, "Period": "Current Month" },
-                  { "Sr No": 6, "Metric": "Follow-ups Due Today", "Value": c.followToday, "Period": "Today" },
-                  { "Sr No": 7, "Metric": "Overdue Follow-ups", "Value": c.followOverdue, "Period": "All Overdue" },
-                  { "Sr No": 8, "Metric": "Emails Queued (Outbox)", "Value": c.queued, "Period": "Live Queue" },
-                  { "Sr No": 9, "Metric": "Emails Accepted (SMTP)", "Value": c.sent, "Period": `${from} to ${to}` },
-                  { "Sr No": 10, "Metric": "Emails Delivery Failed", "Value": c.failed, "Period": `${from} to ${to}` },
-                  { "Sr No": 11, "Metric": "Upcoming Meetings", "Value": c.meetings, "Period": "Scheduled" },
-                  { "Sr No": 12, "Metric": "Open Quotations", "Value": c.openQuotes, "Period": "Active" },
-                  { "Sr No": 13, "Metric": "Deals Won", "Value": c.won, "Period": `${from} to ${to}` },
-                  { "Sr No": 14, "Metric": "Deals Lost", "Value": c.lost, "Period": `${from} to ${to}` },
-                  { "Sr No": 15, "Metric": "Total Pipeline Value", "Value": money(c.pipeline), "Period": "Open Pipeline" },
-                ];
-                const sources = (query.data?.sources ?? []).map((s, idx) => ({
-                  "Sr No": idx + 1,
-                  "Lead Source": s.name || "Unknown",
-                  "Total Leads": s.n,
-                }));
-                const statuses = (query.data?.statuses ?? []).map((s, idx) => ({
-                  "Sr No": idx + 1,
-                  "Lead Status": s.name ? s.name.toUpperCase().replace("_", " ") : "Unknown",
-                  "Count": s.n,
-                }));
-                const team = (query.data?.people ?? []).map((p, idx) => ({
-                  "Sr No": idx + 1,
-                  "Team Member": p.name,
-                  "Calls Completed": p.calls,
-                }));
-                downloadMultiSheetWorkbook(`SMPatel_Dashboard_${from}_to_${to}.xlsx`, [
-                  { name: "KPI Summary", rows: kpis },
-                  { name: "Lead Sources", rows: sources },
-                  { name: "Lead Statuses", rows: statuses },
-                  { name: "Team Activity", rows: team },
-                ]);
-              }}
-            >
-              Export Analytics
+            <Button variant="secondary" onClick={exportAnalytics}>
+              <Download size={16} /> Export Analytics
             </Button>
           </>
         }
       />
       {query.isLoading ? (
-        <Spinner />
-      ) : query.error ? (
-        <Empty title="Could not load dashboard" hint={(query.error as Error).message} />
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {tiles.map((t) => (
-              <Card key={t.label} className="card-hover-lift relative overflow-hidden flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t.label}</span>
-                  <div className={`p-2 rounded-xl border ${t.color}`}>
-                    <t.icon size={16} />
-                  </div>
-                </div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 font-['Space_Grotesk']">{t.value}</p>
-              </Card>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Skeleton key={i} className="h-[104px] rounded-card" />
             ))}
           </div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-[300px] rounded-card" />
+            <Skeleton className="h-[300px] rounded-card" />
+          </div>
+        </div>
+      ) : query.error ? (
+        <ErrorBox message={`Could not load dashboard: ${(query.error as Error).message}`} />
+      ) : (
+        <div className="space-y-6">
+          {groups.map((g) => (
+            <section key={g.title}>
+              <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-500">{g.title}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                {g.tiles.map((t) => (
+                  <StatCard key={t.label} label={t.label} value={t.value} tone={t.tone} icon={<t.icon size={16} />} />
+                ))}
+              </div>
+            </section>
+          ))}
+
+          <div className="grid gap-4 lg:grid-cols-2">
             <Card>
-              <h2 className="mb-3 font-medium">Leads by source</h2>
+              <CardHeader title="Leads by source" subtitle="Active contacts grouped by lead source" icon={<BarChart3 size={16} />} />
               {query.data?.sources.length ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={query.data.sources}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="n" fill="#0f766e" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="h-[220px] sm:h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={query.data.sources} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" vertical={false} />
+                      <XAxis dataKey="name" tick={chartAxis} tickLine={false} axisLine={{ stroke: "#e2e8f0" }} />
+                      <YAxis allowDecimals={false} tick={chartAxis} tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={tooltipStyle} />
+                      <Bar dataKey="n" name="Leads" fill="#f59e0b" radius={[6, 6, 0, 0]} maxBarSize={56} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <Empty title="No contacts yet" />
               )}
             </Card>
             <Card>
-              <h2 className="mb-3 font-medium">Leads by status</h2>
+              <CardHeader title="Leads by status" subtitle="Pipeline stage of active contacts" icon={<BarChart3 size={16} />} />
               {query.data?.statuses.length ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={query.data.statuses}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="n" fill="#115e59" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="h-[220px] sm:h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={query.data.statuses} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" vertical={false} />
+                      <XAxis dataKey="name" tick={chartAxis} tickLine={false} axisLine={{ stroke: "#e2e8f0" }} />
+                      <YAxis allowDecimals={false} tick={chartAxis} tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={tooltipStyle} />
+                      <Bar dataKey="n" name="Contacts" fill="#1e293b" radius={[6, 6, 0, 0]} maxBarSize={56} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <Empty title="No status data" />
               )}
             </Card>
           </div>
-          <Card className="mt-4">
-            <h2 className="mb-3 font-medium">Employee call volume in range</h2>
+
+          <Card>
+            <CardHeader title="Employee call volume in range" subtitle={`${from} to ${to}`} icon={<PhoneCall size={16} />} />
             {query.data?.people.length ? (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500">
-                    <th className="py-2">Employee</th>
-                    <th>Calls</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.data.people.map((p) => (
-                    <tr key={p.name} className="border-t">
-                      <td className="py-2">{p.name}</td>
-                      <td>{p.calls}</td>
+              <TableWrap>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th className="text-right">Calls</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {query.data.people.map((p) => (
+                      <tr key={p.name}>
+                        <td className="font-medium text-ink-900">{p.name}</td>
+                        <td className="text-right tabular-nums">{p.calls}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
             ) : (
               <Empty title="No calls in this date range" />
             )}
           </Card>
-        </>
+        </div>
       )}
     </div>
   );
 }
+
+const tooltipStyle = {
+  borderRadius: 10,
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 8px 24px -8px rgb(15 23 42 / 0.15)",
+  fontSize: 12,
+};

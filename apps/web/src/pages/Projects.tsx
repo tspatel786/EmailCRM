@@ -6,7 +6,7 @@ import { canWrite, projectFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
 import { MemberSelect } from "./Companies";
 
 type Form = z.infer<typeof projectFormSchema>;
@@ -292,18 +292,17 @@ export function ProjectsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="crm-toolbar mb-4">
         <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All statuses</option>
           {["planning", "active", "on_hold", "completed", "cancelled"].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </Select>
-        <Input
+        <SearchInput
           placeholder="Search by project name or client..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="max-w-xs"
         />
       </div>
 
@@ -311,7 +310,7 @@ export function ProjectsPage() {
         <Empty title="No projects found" hint={search ? "Try adjusting your filters" : "Create a project to start tracking milestones."} />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Name</th>
@@ -338,7 +337,7 @@ export function ProjectsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
@@ -429,7 +428,7 @@ export function ProjectsPage() {
               <Field label="Project Name" error={editForm.formState.errors.name?.message}>
                 <Input {...editForm.register("name")} required />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Status" error={editForm.formState.errors.status?.message}>
                   <Select {...editForm.register("status")}>
                     {["planning", "active", "on_hold", "completed", "cancelled"].map((s) => (

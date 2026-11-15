@@ -142,7 +142,7 @@ export function MeetingsPage() {
         <Empty title="No meetings" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Title</th>
@@ -172,7 +172,7 @@ export function MeetingsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       <Modal open={open} title={editTarget ? "Edit meeting" : "Schedule meeting"} onClose={() => setOpen(false)}>

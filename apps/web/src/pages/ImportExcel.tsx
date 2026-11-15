@@ -240,7 +240,7 @@ export function ImportExcelPage() {
         {headers.length ? (
           <div className="overflow-auto space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Map Columns to Contact Fields:</h3>
-            <table className="w-full text-sm">
+            <div className="table-scroll"><table className="w-full text-sm">
               <thead>
                 <tr>
                   {headers.map((h) => (
@@ -261,7 +261,7 @@ export function ImportExcelPage() {
                   ))}
                 </tr>
               </thead>
-            </table>
+            </table></div>
 
             {/* Consent Checkbox */}
             <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-1">
@@ -314,7 +314,7 @@ export function ImportExcelPage() {
         <Empty title="No imports yet" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">File</th>
@@ -335,7 +335,7 @@ export function ImportExcelPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </div>

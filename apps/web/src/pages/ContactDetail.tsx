@@ -457,7 +457,7 @@ function RelatedTable({ rows, cols }: { rows: Array<Record<string, unknown>>; co
   if (!rows.length) return <Empty title="No records" />;
   return (
     <Card>
-      <table className="w-full text-sm">
+      <div className="table-scroll"><table className="w-full text-sm">
         <thead>
           <tr className="text-left text-slate-500">
             {cols.map((c) => (
@@ -478,7 +478,7 @@ function RelatedTable({ rows, cols }: { rows: Array<Record<string, unknown>>; co
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }

@@ -24,7 +24,7 @@ export function AuditLogsPage() {
         <Empty title="No audit events" />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">When</th>
@@ -43,7 +43,7 @@ export function AuditLogsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </div>

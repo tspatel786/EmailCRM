@@ -214,7 +214,7 @@ export function DealsPage() {
         </div>
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Title</th>
@@ -231,7 +231,7 @@ export function DealsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       <Modal open={open} title="New deal" onClose={() => setOpen(false)}>

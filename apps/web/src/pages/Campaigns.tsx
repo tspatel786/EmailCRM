@@ -104,7 +104,7 @@ export function CampaignsPage() {
         <Empty title="No campaigns" />
       ) : (
         <Card>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500 border-b border-slate-200 pb-2">
@@ -360,7 +360,7 @@ export function CampaignDetailPage() {
         ))}
       </div>
       <Card>
-        <table className="w-full text-sm">
+        <div className="table-scroll"><table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-500">
               <th className="py-2">To</th>
@@ -379,7 +379,7 @@ export function CampaignDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
       <Confirm
         open={confirmQueue}

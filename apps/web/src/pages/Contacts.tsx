@@ -9,7 +9,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadWorkbook } from "../lib/export";
 import { fmtDate, telHref } from "../lib/format";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
 import { MemberSelect } from "./Companies";
 
 type Form = z.infer<typeof contactFormSchema>;
@@ -163,20 +163,20 @@ export function ContactsPage() {
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Input className="max-w-sm" placeholder="Search name, email, phone, company" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
+      <Toolbar>
+        <SearchInput placeholder="Search name, email, phone, company" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
         <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
           <option value="">All statuses</option>
           {["new", "contacted", "qualified", "proposal_sent", "negotiation", "won", "lost"].map((s) => (
             <option key={s}>{s}</option>
           ))}
         </Select>
-      </div>
+      </Toolbar>
       {!list.data?.rows.length ? (
         <Empty title="No contacts" hint="Create a contact or import Excel/CSV." />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Name</th>
@@ -219,7 +219,7 @@ export function ContactsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <div className="mt-3 flex items-center justify-between text-sm">
             <span>{list.data.count} records</span>
             <div className="flex gap-2">
@@ -270,7 +270,7 @@ export function ContactsPage() {
           <Field label="Phone" error={form.formState.errors.primary_phone?.message}>
             <Input placeholder="+91 98765 43210" {...form.register("primary_phone")} />
           </Field>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="City">
               <Input {...form.register("city")} />
             </Field>

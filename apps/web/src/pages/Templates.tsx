@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import DOMPurify from "dompurify";
 import { canManageCampaigns, personalize, templateFormSchema } from "@crm/shared";
 import type { z } from "zod";
+import { FileText } from "lucide-react";
 import { useSession } from "../lib/session";
 import { invokeFunction, supabase } from "../lib/supabase";
 import { Button, Card, Confirm, Empty, ErrorBox, Field, Input, Modal, PageHeader, Spinner, Textarea } from "../components/ui";
@@ -265,23 +266,28 @@ export function TemplatesPage() {
       ) : !list.data?.length ? (
         <Empty title="No templates" hint="Create your first reusable email template for campaigns and quick outreach." />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 [&>*]:min-w-0">
           {list.data.map((t) => (
             <Card key={t.id}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-medium text-slate-900">{t.name}</h3>
-                  <p className="text-sm text-slate-500">{t.subject}</p>
-                  <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600 line-clamp-4 bg-slate-50 p-2 rounded-lg border border-slate-100">{t.body_text || t.body_html}</pre>
+              <div className="flex h-full min-w-0 flex-col">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 ring-1 ring-primary-100">
+                    <FileText size={17} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-ink-900">{t.name}</h3>
+                    <p className="truncate text-sm text-ink-500">{t.subject}</p>
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col sm:flex-row gap-1">
-                  <Button variant="secondary" onClick={() => openDemoModal(t as Template)} title="Trigger a demo email to test this template">
+                <pre className="mt-3 line-clamp-4 flex-1 whitespace-pre-wrap break-words rounded-lg border border-ink-100 bg-ink-50 p-3 font-sans text-xs leading-relaxed text-ink-600 [overflow-wrap:anywhere]">{t.body_text || t.body_html}</pre>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
+                  <Button variant="secondary" size="sm" onClick={() => openDemoModal(t as Template)} title="Trigger a demo email to test this template">
                     🚀 Demo Mail
                   </Button>
                   {manage ? (
                     <>
-                      <Button variant="ghost" onClick={() => openEdit(t as Template)}>Edit</Button>
-                      <Button variant="ghost" onClick={() => setDeleteTarget(t.id)}>Archive</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(t as Template)}>Edit</Button>
+                      <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => setDeleteTarget(t.id)}>Archive</Button>
                     </>
                   ) : null}
                 </div>
@@ -404,7 +410,7 @@ export function TemplatesPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
                 Sample Test Variables (नमुना व्हेरिएबल्स)
               </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                 <div>
                   <label className="text-slate-500 block mb-1">Name ({"{{name}}"}):</label>
                   <Input

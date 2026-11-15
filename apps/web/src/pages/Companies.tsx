@@ -6,7 +6,7 @@ import { companyFormSchema, canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadWorkbook } from "../lib/export";
-import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
 import { z } from "zod";
 
 type Form = z.infer<typeof companyFormSchema>;
@@ -131,8 +131,8 @@ export function CompaniesPage() {
           </div>
         }
       />
-      <Input
-        className="mb-4 max-w-sm"
+      <SearchInput
+        className="mb-4 sm:max-w-sm"
         placeholder="Search companies by name..."
         value={q}
         onChange={(e) => {
@@ -144,7 +144,7 @@ export function CompaniesPage() {
         <Empty title="No companies" hint={q ? "No companies matched your search." : "Create a company or import contacts with a company name."} />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Name</th>
@@ -169,7 +169,7 @@ export function CompaniesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">

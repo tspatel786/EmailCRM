@@ -9,7 +9,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money, fmtDateTime } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput } from "../components/ui";
 
 type Form = z.infer<typeof quotationFormSchema>;
 
@@ -364,14 +364,13 @@ export function QuotationsPage() {
         }
       />
 
-      <div className="mb-4">
-        <Input
+      <Toolbar>
+        <SearchInput
           placeholder="Search quotations by title..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="max-w-xs"
         />
-      </div>
+      </Toolbar>
 
       {approve.error ? (
         <div className="mb-4 rounded-lg bg-rose-50 p-2.5 text-xs font-medium text-rose-700 border border-rose-200">
@@ -383,7 +382,7 @@ export function QuotationsPage() {
         <Empty title="No quotations found" hint={search ? "Try adjusting your search" : "Create a quotation to send estimates to clients."} />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">Title</th>
@@ -423,7 +422,7 @@ export function QuotationsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">

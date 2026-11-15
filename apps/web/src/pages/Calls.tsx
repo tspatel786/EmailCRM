@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime, telHref } from "../lib/format";
-import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, SearchInput } from "../components/ui";
 
 type Form = z.infer<typeof callFormSchema>;
 
@@ -265,23 +265,24 @@ export function CallsPage() {
           </ul>
         </Card>
       ) : null}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {(["all", "today", "callback"] as const).map((v) => (
-          <Button key={v} variant={view === v ? "primary" : "secondary"} onClick={() => { setView(v); setPage(1); }}>
-            {v}
-          </Button>
-        ))}
+      <div className="crm-toolbar mb-4">
+        <div className="flex flex-wrap gap-1 rounded-control border border-ink-200 bg-white p-1 shadow-sm" role="group" aria-label="Call view">
+          {(["all", "today", "callback"] as const).map((v) => (
+            <Button key={v} size="sm" variant={view === v ? "primary" : "ghost"} className="capitalize" onClick={() => { setView(v); setPage(1); }}>
+              {v}
+            </Button>
+          ))}
+        </div>
         <Select value={outcome} onChange={(e) => { setOutcome(e.target.value); setPage(1); }}>
           <option value="">All outcomes</option>
           {["answered", "not_answered", "busy", "callback", "interested", "not_interested"].map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
         </Select>
-        <Input
+        <SearchInput
           placeholder="Search by contact or notes..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="max-w-xs"
         />
       </div>
 
@@ -289,7 +290,7 @@ export function CallsPage() {
         <Empty title="No calls found" hint={search ? "Try adjusting your search or filters" : "Log a call to start tracking customer calls."} />
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="table-scroll"><table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500">
                 <th className="py-2">When</th>
@@ -339,7 +340,7 @@ export function CallsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
