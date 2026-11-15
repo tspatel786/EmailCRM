@@ -45,6 +45,41 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Find who a provider message id was sent to (campaign job or Webmail message) and add
+// that address to the organization's suppression list. Duplicates are ignored.
+async function suppressRecipient(emailId: string, reason: "bounce" | "complaint", source: string): Promise<void> {
+  const { data: job } = await admin
+    .from("email_jobs")
+    .select("organization_id, contact_id, to_email")
+    .eq("smtp_message_id", emailId)
+    .limit(1)
+    .maybeSingle();
+  let target = job as { organization_id: string; contact_id: string | null; to_email: string } | null;
+  if (!target) {
+    const { data: msg } = await admin
+      .from("messages")
+      .select("organization_id, contact_id, to_email")
+      .eq("provider_message_id", emailId)
+      .eq("direction", "outbound")
+      .limit(1)
+      .maybeSingle();
+    target = msg as typeof target;
+  }
+  if (!target?.organization_id || !target.to_email) return;
+
+  const { error } = await admin.from("suppressions").insert({
+    organization_id: target.organization_id,
+    email: target.to_email.trim().toLowerCase(),
+    contact_id: target.contact_id,
+    reason,
+    source: `resend:${source}`,
+  });
+  // 23505 = already suppressed (unique on organization_id + lower(email)).
+  if (error && error.code !== "23505") {
+    console.error(JSON.stringify({ msg: "resend-webhook-suppress-failed", error: error.message }));
+  }
+}
+
 type ResendEvent = {
   type: string;
   created_at: string;
@@ -232,6 +267,15 @@ serve(async (req: Request) => {
           .update({ status: "bounced", last_error: data.bounce?.message || "Bounced via Resend" })
           .eq("smtp_message_id", emailId);
       }
+    }
+
+    // Hard bounces and spam complaints: suppress the address for its organization so
+    // future campaigns skip it (queue_campaign excludes suppressed emails). Soft
+    // (transient) bounces are not suppressed -- the mailbox may accept mail later.
+    const isHardBounce = eventType === "email.bounced" && !/transient|soft|temporary/i.test(data.bounce?.type ?? "");
+    const isComplaint = eventType === "email.complained";
+    if (isHardBounce || isComplaint) {
+      await suppressRecipient(emailId, isComplaint ? "complaint" : "bounce", eventType);
     }
   }
 
