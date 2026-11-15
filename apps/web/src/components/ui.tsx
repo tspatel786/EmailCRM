@@ -260,7 +260,8 @@ export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?
       )}
     >
       <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", badgeDots[tone] ?? badgeDots.slate)} aria-hidden />
-      <span className="truncate">{children}</span>
+      {/* Raw enum values like "pending_approval" read as "pending approval". */}
+      <span className="truncate">{typeof children === "string" ? children.replace(/_/g, " ") : children}</span>
     </span>
   );
 }
