@@ -36,8 +36,9 @@ import { useSession } from "../lib/session";
 import { useTheme } from "../lib/theme";
 import { supabase } from "../lib/supabase";
 import { cn } from "./ui";
+import { canManageCampaigns } from "@crm/shared";
 
-type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
+type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; managersOnly?: boolean };
 
 // Same routes and labels as before, grouped for scannability.
 const navGroups: { title: string; items: NavItem[] }[] = [
@@ -71,7 +72,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "Email",
     items: [
       { to: "/app/mails", label: "Mails", icon: Mail },
-      { to: "/app/campaigns", label: "Campaigns", icon: Megaphone },
+      { to: "/app/campaigns", label: "Campaigns", icon: Megaphone, managersOnly: true },
       { to: "/app/templates", label: "Email Templates", icon: FileText },
     ],
   },
@@ -245,7 +246,7 @@ export function AppShell() {
 
         {/* Nav */}
         <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
-          {navGroups.map((group) => (
+          {navGroups.map((group) => ({ ...group, items: group.items.filter((i) => !i.managersOnly || canManageCampaigns(org?.role)) })).map((group) => (
             <div key={group.title}>
               <p className={cn("mb-1.5 px-3 text-2xs font-semibold uppercase tracking-[0.08em] text-ink-500", isCollapsed && "lg:hidden")}>
                 {group.title}

@@ -16,6 +16,11 @@ export function canManageCampaigns(role: AppRole | null | undefined): boolean {
   return role === "owner" || role === "admin" || role === "sales_manager";
 }
 
+/** Roles that can VIEW every record in the organization (mirrors has_view_all_role in SQL). */
+export function canViewAll(role: AppRole | null | undefined): boolean {
+  return role === "owner" || role === "admin" || role === "sales_manager";
+}
+
 export function canAdmin(role: AppRole | null | undefined): boolean {
   return role === "owner" || role === "admin";
 }

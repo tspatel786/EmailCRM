@@ -25,9 +25,11 @@ type Props = {
   userId: string | undefined;
   scopeToMe: boolean;
   email: { queued: number; sent: number; failed: number } | undefined;
+  /** Campaign email stats are only visible to owner/admin/sales manager. */
+  showEmail?: boolean;
 };
 
-export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
+export function DashboardWidgets({ orgId, userId, scopeToMe, email, showEmail = true }: Props) {
   const widgets = useQuery({
     queryKey: ["dashboard-widgets", orgId, scopeToMe],
     queryFn: async () => {
@@ -96,7 +98,7 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-3">
         {/* Sales pipeline */}
-        <Card className="xl:col-span-2">
+        <Card className={showEmail ? "xl:col-span-2" : "xl:col-span-3"}>
           <CardHeader
             title="Sales pipeline"
             subtitle={d ? `${d.totalDeals} deals across stages` : "Deals by stage"}
@@ -138,6 +140,7 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
         </Card>
 
         {/* Email activity (from the dashboard's existing counts) */}
+        {showEmail ? (
         <Card>
           <CardHeader title="Email activity" subtitle="Campaign email jobs" icon={<Mail size={16} />} actions={<ViewAll to="/app/campaigns" />} />
           {!email ? (
@@ -176,6 +179,7 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
             </div>
           )}
         </Card>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">

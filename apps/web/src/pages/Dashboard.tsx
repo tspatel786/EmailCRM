@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { startOfMonth } from "date-fns";
-import { canAdmin } from "@crm/shared";
+import { canManageCampaigns, canViewAll } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { downloadMultiSheetWorkbook } from "../lib/export";
@@ -51,7 +51,8 @@ type Counts = {
 export function DashboardPage() {
   const { org, user } = useSession();
   const orgId = org?.organization_id;
-  const isAdmin = canAdmin(org?.role);
+  // Owner/admin/sales manager see every record (RLS has_view_all_role), so they get the "my data only" toggle.
+  const isAdmin = canViewAll(org?.role);
   const [from, setFrom] = useState(startOfMonth(new Date()).toISOString().slice(0, 10));
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
   const [myDataOnly, setMyDataOnly] = useState(false);
@@ -99,7 +100,7 @@ export function DashboardPage() {
       ]);
 
       const [queued, sent, failed, meetings, openQuotes, deals] = await Promise.all([
-        // email_jobs are campaign-level (no owner_user_id column), so they stay org-wide.
+        // email_jobs are campaign-level (no owner_user_id column): org-wide for owner/admin/manager, hidden by RLS from others.
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "queued"),
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).eq("status", "sent"),
         supabase.from("email_jobs").select("id", { count: "exact", head: true }).eq("organization_id", orgId!).in("status", ["failed", "dead_letter", "bounced"]),
@@ -322,6 +323,7 @@ export function DashboardPage() {
               userId={user?.id}
               scopeToMe={scopeToMe}
               email={c ? { queued: c.queued, sent: c.sent, failed: c.failed } : undefined}
+              showEmail={canManageCampaigns(org?.role)}
             />
           ) : null}
 
