@@ -101,6 +101,7 @@ export function MailsPage() {
         .eq("is_read", false);
       return count ?? 0;
     },
+    refetchInterval: 30_000,
   });
 
   // Query messages for current folder
@@ -126,6 +127,13 @@ export function MailsPage() {
       });
       return rows;
     },
+    // The worker sends queued mail in the background and replies arrive via webhook, so
+    // poll: faster while something is still queued, slower otherwise.
+    refetchInterval: (query) =>
+      (query.state.data as Message[] | undefined)?.some((m) => m.status === "queued" || m.status === "processing") ||
+      activeFolder === "queued"
+        ? 5_000
+        : 30_000,
   });
 
   const messages = messagesQuery.data ?? [];
@@ -186,6 +194,11 @@ export function MailsPage() {
   const handleSendCompose = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !composeTo.trim()) return;
+    const recipient = composeTo.trim();
+    if (!/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]{2,}$/.test(recipient)) {
+      setComposeError("Enter a single valid email address in the To field.");
+      return;
+    }
 
     setComposeSending(true);
     setComposeError("");
@@ -204,8 +217,8 @@ export function MailsPage() {
           status: "queued",
           from_name: org?.organizations?.name || "S.M.PATEL IT HUB",
           from_email: "sales@updates.smpatelithub.in",
-          to_email: composeTo.trim(),
-          to_name: composeTo.trim(),
+          to_email: recipient,
+          to_name: recipient,
           subject: composeSubject.trim() || "(No Subject)",
           body_text: composeBody,
           body_html: `<div style="font-family: sans-serif; line-height: 1.5;">${escapeHtml(composeBody).replace(/\n/g, "<br/>")}</div>`,
@@ -230,20 +243,27 @@ export function MailsPage() {
         });
       }
 
-      setComposeSuccess("Email queued! Dispatching via Resend...");
+      setComposeSuccess("Email queued. It is usually sent within a minute; check the Sent folder.");
       qc.invalidateQueries({ queryKey: ["messages", orgId] });
 
       setTimeout(() => {
         setComposeOpen(false);
         setReplyOpen(false);
         setComposeTo("");
+        setComposeContactId("");
         setComposeSubject("");
         setComposeBody("");
         setComposeSuccess("");
       }, 1000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setComposeError(msg);
+      // Supabase errors are plain objects ({ message, details, hint }), not Error instances.
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err && "message" in err
+            ? String((err as { message: unknown }).message)
+            : String(err);
+      setComposeError(msg || "Could not queue the email. Please try again.");
     } finally {
       setComposeSending(false);
     }
@@ -561,7 +581,7 @@ export function MailsPage() {
                       srcDoc={selectedMessage.body_html}
                     />
                   ) : (
-                    <pre className="max-w-full whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800 [overflow-wrap:break-word] [word-break:normal]">{selectedMessage.body_text}</pre>
+                    <pre className="max-w-full whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800 dark:text-ink-200 [overflow-wrap:break-word] [word-break:normal]">{selectedMessage.body_text}</pre>
                   )}
                 </div>
               </div>
@@ -612,7 +632,7 @@ export function MailsPage() {
 
             {!replyOpen && (
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink-700">
+                <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
                   Select CRM Contact (Optional)
                 </label>
                 <Select
@@ -635,7 +655,7 @@ export function MailsPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
                 To Email *
               </label>
               <Input
@@ -648,7 +668,7 @@ export function MailsPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
                 Subject *
               </label>
               <Input
@@ -660,7 +680,7 @@ export function MailsPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
                 Message *
               </label>
               <Textarea
@@ -674,7 +694,7 @@ export function MailsPage() {
 
             <div className="flex flex-col gap-3 border-t border-ink-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-xs text-ink-500">
-                From: <span className="font-medium text-ink-700">sales@updates.smpatelithub.in</span>
+                From: <span className="font-medium text-ink-700 dark:text-ink-200">sales@updates.smpatelithub.in</span>
               </span>
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row">

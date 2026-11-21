@@ -9,6 +9,36 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const webhookSecret = Deno.env.get("RESEND_WEBHOOK_SECRET") ?? "";
+const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? "";
+// Organization that receives inbound mail from senders who are not (yet) a contact, e.g. a
+// brand-new enquiry. Without it such mail is dropped, because guessing an org is unsafe.
+const inboundDefaultOrgSlug = Deno.env.get("INBOUND_DEFAULT_ORG_SLUG") ?? "";
+
+// ilike treats % and _ as wildcards; escape them so a crafted sender address cannot
+// match (and be routed to) some other organization's contact.
+function likeExact(value: string): string {
+  return value.replace(/[\%_]/g, (c) => `\${c}`);
+}
+
+// Resend's email.received webhook carries only metadata (from/to/subject/ids); the body
+// must be fetched from the Received Emails API.
+async function fetchReceivedEmail(emailId: string): Promise<{ text?: string; html?: string; headers?: Record<string, string> } | null> {
+  if (!resendApiKey) return null;
+  try {
+    const res = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
+      headers: { Authorization: `Bearer ${resendApiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      console.warn(JSON.stringify({ msg: "resend-webhook-fetch-body-failed", status: res.status }));
+      return null;
+    }
+    return await res.json();
+  } catch (error) {
+    console.warn(JSON.stringify({ msg: "resend-webhook-fetch-body-error", error: String(error).slice(0, 200) }));
+    return null;
+  }
+}
 
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
@@ -169,7 +199,7 @@ serve(async (req: Request) => {
     const { data: emailMatches } = await admin
       .from("contact_emails")
       .select("contact_id, organization_id")
-      .ilike("email", fromEmail)
+      .ilike("email", likeExact(fromEmail))
       .limit(1);
 
     let contactId = emailMatches?.[0]?.contact_id ?? null;
@@ -179,7 +209,7 @@ serve(async (req: Request) => {
       const { data: primaryMatches } = await admin
         .from("contacts")
         .select("id, organization_id")
-        .ilike("primary_email", fromEmail)
+        .ilike("primary_email", likeExact(fromEmail))
         .limit(1);
       contactId = primaryMatches?.[0]?.id ?? null;
       orgId = primaryMatches?.[0]?.organization_id ?? null;
@@ -198,6 +228,16 @@ serve(async (req: Request) => {
 
     // No org can be safely resolved -- do NOT guess (that previously misrouted inbound
     // mail into whichever org happened to be first in the table). Drop and log instead.
+    // Unknown sender: use the explicitly configured default org (never "first org in the
+    // table"). Without that setting, drop and log as before.
+    if (!orgId && inboundDefaultOrgSlug) {
+      const { data: defaultOrg } = await admin
+        .from("organizations")
+        .select("id")
+        .eq("slug", inboundDefaultOrgSlug)
+        .maybeSingle();
+      orgId = defaultOrg?.id ?? null;
+    }
     if (!orgId) {
       console.warn(JSON.stringify({ msg: "resend-webhook-unrouted-inbound", fromEmail, toEmail }));
       return new Response(JSON.stringify({ ok: true, action: "unrouted_dropped" }), {
@@ -206,7 +246,31 @@ serve(async (req: Request) => {
       });
     }
 
-    await admin.from("messages").insert({
+    let bodyText = data.text || "";
+    let bodyHtml = data.html || "";
+    let headers = data.headers ?? {};
+    if (!bodyText && !bodyHtml && emailId) {
+      const full = await fetchReceivedEmail(emailId);
+      bodyText = full?.text || "";
+      bodyHtml = full?.html || "";
+      headers = full?.headers ?? headers;
+    }
+
+    // Resend retries deliveries; skip one we already stored.
+    if (emailId) {
+      const { data: existing } = await admin
+        .from("messages")
+        .select("id")
+        .eq("provider_message_id", emailId)
+        .eq("direction", "inbound")
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        return new Response(JSON.stringify({ ok: true, action: "duplicate_ignored" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    const { error: insertError } = await admin.from("messages").insert({
       organization_id: orgId,
       contact_id: contact?.id ?? null,
       owner_user_id: contact?.owner_user_id ?? null,
@@ -217,14 +281,19 @@ serve(async (req: Request) => {
       from_email: fromEmail,
       to_email: toEmail,
       subject: data.subject || "(No Subject)",
-      body_text: data.text || "",
-      body_html: data.html || (data.text ? `<p>${escapeHtml(data.text).replace(/\n/g, "<br/>")}</p>` : ""),
+      body_text: bodyText,
+      body_html: bodyHtml || (bodyText ? `<p>${escapeHtml(bodyText).replace(/\n/g, "<br/>")}</p>` : ""),
       provider: "resend",
       provider_message_id: emailId ?? null,
       is_read: false,
-      headers: data.headers ?? {},
+      headers,
       raw_payload: event,
     });
+    if (insertError) {
+      // Non-2xx makes Resend retry instead of the reply being lost silently.
+      console.error(JSON.stringify({ msg: "resend-webhook-inbound-insert-failed", error: insertError.message }));
+      return new Response(JSON.stringify({ error: "insert_failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
 
     // Record activity on contact timeline if known contact
     if (contact?.id) {
@@ -234,7 +303,7 @@ serve(async (req: Request) => {
         actor_user_id: contact.owner_user_id,
         activity_type: "email",
         summary: `Email reply received: ${data.subject || "(No Subject)"}`,
-        outcome: (data.text || "").slice(0, 500),
+        outcome: bodyText.slice(0, 500),
         occurred_at: event.created_at || new Date().toISOString(),
       });
     }
@@ -254,11 +323,17 @@ serve(async (req: Request) => {
     else if (eventType === "email.bounced") newStatus = "bounced";
 
     if (newStatus) {
-      // Update in messages table
-      await admin
-        .from("messages")
-        .update({ status: newStatus })
-        .eq("provider_message_id", emailId);
+      // Update in messages table. Events can arrive out of order (e.g. "delivered" after
+      // "opened"); never move a message back to an earlier status.
+      const later: Record<string, string[]> = {
+        delivered: ["opened", "clicked", "bounced"],
+        opened: ["clicked", "bounced"],
+        clicked: ["bounced"],
+        bounced: [],
+      };
+      let update = admin.from("messages").update({ status: newStatus }).eq("provider_message_id", emailId);
+      if (later[newStatus].length) update = update.not("status", "in", `(${later[newStatus].join(",")})`);
+      await update;
 
       // If bounced, also flag in email_jobs if present
       if (newStatus === "bounced") {

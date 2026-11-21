@@ -28,7 +28,11 @@ export const env = {
   batchSize: Number(process.env.WORKER_BATCH_SIZE ?? "10"),
   leaseSeconds: Number(process.env.WORKER_LEASE_SECONDS ?? "120"),
   healthPort: Number(process.env.PORT ?? process.env.WORKER_HEALTH_PORT ?? "8787"),
-  appPublicUrl: process.env.APP_PUBLIC_URL ?? "http://localhost:5173",
+  appPublicUrl: (process.env.APP_PUBLIC_URL ?? "http://localhost:5173").replace(/\/+$/, ""),
+  // Public URL of this worker. Render sets RENDER_EXTERNAL_URL automatically; pinging it keeps
+  // a free-tier web service from spinning down after 15 idle minutes (which stops all sending).
+  keepAliveUrl: (process.env.KEEPALIVE_URL ?? process.env.RENDER_EXTERNAL_URL ?? "").replace(/\/+$/, ""),
+  keepAliveMs: Number(process.env.KEEPALIVE_INTERVAL_MS ?? String(10 * 60_000)),
   nodeEnv: process.env.NODE_ENV ?? "development",
 };
 
@@ -41,6 +45,13 @@ export function assertWorkerSecrets(): void {
   }
   if (!env.smtpMock && env.resendApiKey && !env.resendFromEmail) {
     throw new Error("RESEND_FROM_EMAIL or SMTP_FROM_EMAIL is required when using RESEND_API_KEY");
+  }
+  if (env.nodeEnv === "production" && /localhost|127\.0\.0\.1/.test(env.appPublicUrl)) {
+    // Not fatal (sending must keep working), but every unsubscribe link would point at localhost.
+    console.error(JSON.stringify({
+      msg: "worker-config-error",
+      detail: "APP_PUBLIC_URL is not set to the public web app URL; campaign unsubscribe links will be broken.",
+    }));
   }
   if (env.serviceRoleKey.startsWith("replace-with")) {
     throw new Error("Configure SUPABASE_SERVICE_ROLE_KEY before starting the worker");

@@ -51,3 +51,6 @@ services:
         sync: false
       - key: RESEND_FROM_EMAIL
         value: sales@updates.smpatelithub.in
+      # Public URL of the web app; used to build campaign unsubscribe links.
+      - key: APP_PUBLIC_URL
+        sync: false

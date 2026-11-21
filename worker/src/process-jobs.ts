@@ -19,7 +19,10 @@ type Job = {
 };
 
 function redact(message: string): string {
-  return message.replace(env.smtpPass, "[redacted]").slice(0, 500);
+  // Guard against an empty SMTP_PASS (Resend-only deploys): "".replace("", x) would
+  // prepend "[redacted]" to every error message.
+  const out = env.smtpPass ? message.split(env.smtpPass).join("[redacted]") : message;
+  return out.slice(0, 500);
 }
 
 // M7 fix: preserve original started_at on subsequent heartbeats

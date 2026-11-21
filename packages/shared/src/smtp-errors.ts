@@ -5,6 +5,13 @@ const TRANSIENT = /^(4\d\d)|timeout|temporar|rate limit|try again|connection|eco
 
 export function classifySmtpError(error: unknown): FailureClass {
   const message = error instanceof Error ? `${error.message} ${"code" in error ? String((error as { code?: string }).code) : ""}` : String(error);
+  // Resend HTTP API errors: 429 and 5xx are retryable; other 4xx (invalid recipient,
+  // unverified domain, bad API key) will fail the same way on every retry.
+  const resend = /Resend HTTP (\d{3})/.exec(message);
+  if (resend) {
+    const status = Number(resend[1]);
+    return status === 429 || status >= 500 ? "transient" : "permanent";
+  }
   if (PERMANENT.test(message)) return "permanent";
   if (TRANSIENT.test(message)) return "transient";
   return "ambiguous";

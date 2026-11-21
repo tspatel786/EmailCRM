@@ -47,6 +47,29 @@ console.info(
   }),
 );
 
+// Keep-alive: Render free web services sleep after 15 minutes without inbound HTTP traffic,
+// and a sleeping worker sends nothing (production heartbeats showed ~15-minute lifetimes).
+// A periodic request to our own public URL counts as inbound traffic.
+if (env.keepAliveUrl) {
+  const ping = async () => {
+    try {
+      const res = await fetch(`${env.keepAliveUrl}/healthz`, { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) console.warn(JSON.stringify({ msg: "worker-keepalive-bad-status", status: res.status }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(JSON.stringify({ msg: "worker-keepalive-failed", error: message.slice(0, 200) }));
+    }
+  };
+  const timer = setInterval(() => void ping(), Math.max(60_000, env.keepAliveMs));
+  timer.unref();
+  console.info(JSON.stringify({ msg: "worker-keepalive-enabled", intervalMs: Math.max(60_000, env.keepAliveMs) }));
+} else if (env.nodeEnv === "production") {
+  console.warn(JSON.stringify({
+    msg: "worker-keepalive-disabled",
+    detail: "Set KEEPALIVE_URL (or run on Render, which sets RENDER_EXTERNAL_URL) if the host sleeps idle services.",
+  }));
+}
+
 async function runStep(name: string, fn: () => Promise<unknown>): Promise<void> {
   try {
     await fn();

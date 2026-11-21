@@ -8,8 +8,13 @@ function escapeHtml(s: string): string {
 }
 
 function redact(message: string): string {
-  return message.replace(env.smtpPass, "[redacted]").slice(0, 500);
+  // Guard against an empty SMTP_PASS (Resend-only deploys): "".replace("", x) would
+  // prepend "[redacted]" to every error message.
+  const out = env.smtpPass ? message.split(env.smtpPass).join("[redacted]") : message;
+  return out.slice(0, 500);
 }
+
+let loggedQueryError = "";
 
 const LEASE_MS = 2 * 60_000;
 
@@ -31,7 +36,23 @@ export async function processOutboundMessages(): Promise<number> {
       .order("created_at", { ascending: true })
       .limit(10);
 
-    if (error || !messages || messages.length === 0) return 0;
+    if (error) {
+      // Previously swallowed silently, which hid a missing migration (0024) in production:
+      // every Webmail message stayed "Queued" forever with nothing in the logs.
+      if (error.message !== loggedQueryError) {
+        loggedQueryError = error.message;
+        console.error(JSON.stringify({
+          msg: "outbound-messages-query-failed",
+          error: error.message,
+          hint: /next_attempt_at|attempt_count|locked_until|last_error|max_attempts/.test(error.message)
+            ? "Apply supabase/migrations/0024_outbound_message_retry.sql to this database"
+            : undefined,
+        }));
+      }
+      return 0;
+    }
+    loggedQueryError = "";
+    if (!messages || messages.length === 0) return 0;
 
     let processed = 0;
     for (const msg of messages) {
@@ -71,6 +92,8 @@ export async function processOutboundMessages(): Promise<number> {
       });
 
       if (result.ok) {
+        // Count Webmail sends against the same daily organization limit as campaigns.
+        await admin.rpc("increment_org_email_stat", { p_org: msg.organization_id, p_accepted: 1, p_failed: 0 });
         await admin
           .from("messages")
           .update({
@@ -88,6 +111,7 @@ export async function processOutboundMessages(): Promise<number> {
         const terminal = klass === "permanent" || exhausted;
         console.error(JSON.stringify({ msg: "outbound-message-send-failed", id: msg.id, attempt: attemptCount, terminal, error: redact(result.error.message) }));
         if (terminal) {
+          await admin.rpc("increment_org_email_stat", { p_org: msg.organization_id, p_accepted: 0, p_failed: 1 });
           await admin
             .from("messages")
             .update({
