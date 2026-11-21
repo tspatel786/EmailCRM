@@ -109,7 +109,7 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
             <Empty title="No deals yet" hint="Deals you create will appear here by stage." />
           ) : (
             <>
-              <div className="mb-5 flex h-2.5 w-full overflow-hidden rounded-full bg-ink-100" aria-hidden>
+              <div className="mb-5 flex h-2.5 w-full overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800" aria-hidden>
                 {d.pipeline
                   .filter((p) => p.count)
                   .map((p) => (
@@ -119,16 +119,16 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
               <ul className="space-y-2.5">
                 {d.pipeline.map((p) => (
                   <li key={p.stage} className="grid grid-cols-[110px_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[130px_1fr_120px]">
-                    <span className="flex items-center gap-2 capitalize text-ink-600">
+                    <span className="flex items-center gap-2 capitalize text-ink-600 dark:text-ink-300">
                       <span className={cn("h-2 w-2 shrink-0 rounded-full", stageColor[p.stage])} />
                       <span className="truncate">{label(p.stage)}</span>
                     </span>
-                    <span className="h-2 overflow-hidden rounded-full bg-ink-100">
+                    <span className="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
                       <span className={cn("block h-full rounded-full", stageColor[p.stage])} style={{ width: `${(p.count / maxStage) * 100}%` }} />
                     </span>
                     <span className="text-right tabular-nums">
-                      <span className="font-semibold text-ink-900">{p.count}</span>
-                      <span className="ml-2 hidden text-xs text-ink-500 sm:inline">{money(p.value)}</span>
+                      <span className="font-semibold text-ink-900 dark:text-white">{p.count}</span>
+                      <span className="ml-2 hidden text-xs text-ink-500 sm:inline dark:text-ink-400">{money(p.value)}</span>
                     </span>
                   </li>
                 ))}
@@ -147,10 +147,10 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
           ) : (
             <div className="space-y-4">
               <div>
-                <p className="font-display text-3xl font-bold tracking-tight text-ink-900 tabular-nums">{emailTotal}</p>
-                <p className="text-xs text-ink-500">total email jobs</p>
+                <p className="font-display text-3xl font-bold tracking-tight text-ink-900 tabular-nums dark:text-white">{emailTotal}</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">total email jobs</p>
               </div>
-              <div className="flex h-2.5 overflow-hidden rounded-full bg-ink-100" aria-hidden>
+              <div className="flex h-2.5 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800" aria-hidden>
                 <div className="bg-emerald-500" style={{ width: `${pct(email.sent)}%` }} />
                 <div className="bg-sky-400" style={{ width: `${pct(email.queued)}%` }} />
                 <div className="bg-rose-400" style={{ width: `${pct(email.failed)}%` }} />
@@ -162,13 +162,13 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
                   { k: "Failed / bounced", v: email.failed, c: "bg-rose-400" },
                 ].map((r) => (
                   <li key={r.k} className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-ink-600">
+                    <span className="flex items-center gap-2 text-ink-600 dark:text-ink-300">
                       <span className={cn("h-2 w-2 rounded-full", r.c)} />
                       {r.k}
                     </span>
                     <span className="tabular-nums">
-                      <span className="font-semibold text-ink-900">{r.v}</span>
-                      <span className="ml-1.5 text-xs text-ink-400">{pct(r.v)}%</span>
+                      <span className="font-semibold text-ink-900 dark:text-white">{r.v}</span>
+                      <span className="ml-1.5 text-xs text-ink-400 dark:text-ink-500">{pct(r.v)}%</span>
                     </span>
                   </li>
                 ))}
@@ -187,17 +187,17 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
           ) : !d?.tasks.length ? (
             <Empty title="No open follow-ups" />
           ) : (
-            <ul className="-mx-1 divide-y divide-ink-100">
+            <ul className="-mx-1 divide-y divide-ink-100 dark:divide-ink-800">
               {d.tasks.map((t) => {
                 const overdue = new Date(t.due_at) < new Date();
                 return (
                   <li key={t.id} className="flex items-start gap-3 px-1 py-2.5">
                     <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", overdue ? "bg-rose-500" : t.priority === "high" ? "bg-primary-500" : "bg-ink-300")} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink-900">{t.title}</p>
-                      <p className="truncate text-xs text-ink-500">
+                      <p className="truncate text-sm font-medium text-ink-900 dark:text-white">{t.title}</p>
+                      <p className="truncate text-xs text-ink-500 dark:text-ink-400">
                         {t.contact ? `${t.contact} · ` : ""}
-                        <span className={overdue ? "font-medium text-rose-600" : ""}>{overdue ? "Overdue · " : ""}{fmtDateTime(t.due_at)}</span>
+                        <span className={overdue ? "font-medium text-rose-600 dark:text-rose-400" : ""}>{overdue ? "Overdue · " : ""}{fmtDateTime(t.due_at)}</span>
                       </p>
                     </div>
                   </li>
@@ -219,14 +219,14 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
               {d.meetings.map((m) => {
                 const dt = new Date(m.starts_at);
                 return (
-                  <li key={m.id} className="flex items-center gap-3 rounded-lg border border-ink-100 p-2.5">
-                    <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-100">
+                  <li key={m.id} className="flex items-center gap-3 rounded-lg border border-ink-100 p-2.5 dark:border-ink-800">
+                    <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-100 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20">
                       <span className="text-2xs font-semibold uppercase leading-none">{dt.toLocaleDateString([], { month: "short" })}</span>
                       <span className="font-display text-base font-bold leading-tight">{dt.getDate()}</span>
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink-900">{m.title}</p>
-                      <p className="truncate text-xs text-ink-500">
+                      <p className="truncate text-sm font-medium text-ink-900 dark:text-white">{m.title}</p>
+                      <p className="truncate text-xs text-ink-500 dark:text-ink-400">
                         {dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {m.contact ? ` · ${m.contact}` : ""}
                         {m.location ? ` · ${m.location}` : ""}
@@ -247,19 +247,19 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
           ) : !d?.activities.length ? (
             <Empty title="No recent activity" />
           ) : (
-            <ol className="relative space-y-3.5 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-ink-200">
+            <ol className="relative space-y-3.5 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-ink-200 dark:before:bg-ink-700">
               {d.activities.map((a) => (
                 <li key={a.id} className="relative flex gap-3 pl-0">
-                  <span className="relative z-10 mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-white bg-primary-500 ring-1 ring-primary-200" />
+                  <span className="relative z-10 mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-white bg-primary-500 ring-1 ring-primary-200 dark:border-ink-900 dark:ring-primary-500/30" />
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm text-ink-800">{a.summary}</p>
-                    <p className="mt-0.5 truncate text-xs text-ink-500">
+                    <p className="line-clamp-2 text-sm text-ink-800 dark:text-ink-200">{a.summary}</p>
+                    <p className="mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400">
                       <span className="capitalize">{label(a.activity_type)}</span>
                       {a.contact ? (
                         <>
                           {" · "}
                           {a.contact_id ? (
-                            <Link to={`/app/contacts/${a.contact_id}`} className="font-medium text-ink-700 hover:text-primary-700">
+                            <Link to={`/app/contacts/${a.contact_id}`} className="font-medium text-ink-700 hover:text-primary-700 dark:text-ink-300 dark:hover:text-primary-300">
                               {a.contact}
                             </Link>
                           ) : (
@@ -283,7 +283,7 @@ export function DashboardWidgets({ orgId, userId, scopeToMe, email }: Props) {
 
 function ViewAll({ to }: { to: string }) {
   return (
-    <Link to={to} className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-primary-700 transition hover:bg-primary-50">
+    <Link to={to} className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-500/10">
       View all <ArrowRight size={13} />
     </Link>
   );

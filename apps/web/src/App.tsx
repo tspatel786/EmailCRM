@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useApplyTheme } from "./lib/theme";
 import { useSession } from "./lib/session";
 import { AppShell } from "./components/AppShell";
 import { Button, Spinner } from "./components/ui";
@@ -83,6 +84,11 @@ function Protected({ children }: { children: ReactElement }) {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+  const { loading, session, memberships } = useSession();
+  // Dark mode only inside the authenticated app; redirects, invite/no-org screens and
+  // public pages stay light.
+  useApplyTheme(pathname.startsWith("/app") && (loading || (!!session && memberships.length > 0)));
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
