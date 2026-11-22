@@ -69,7 +69,8 @@ export async function processJob(job: Job): Promise<"sent" | "failed" | "deferre
   }
 
   const remaining = await remainingToday(job.organization_id);
-  if (remaining <= 0) {
+  // Campaigns stop at the webmail reserve; Mails (outbound-messages.ts) can still use it.
+  if (remaining <= env.webmailReserve) {
     const next = new Date();
     next.setUTCHours(24, 0, 5, 0);
     await admin
@@ -77,7 +78,7 @@ export async function processJob(job: Job): Promise<"sent" | "failed" | "deferre
       .update({
         status: "queued",
         next_attempt_at: next.toISOString(),
-        last_error: "Daily organization send limit reached",
+        last_error: env.webmailReserve ? `Daily campaign limit reached (${env.webmailReserve} kept for Mails)` : "Daily organization send limit reached",
         locked_by: null,
         locked_until: null,
       })

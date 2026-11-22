@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { ThreeBackground } from "../components/ThreeBackground";
+// three.js is ~600 KB: load the decorative background separately so the form appears first.
+const ThreeBackground = lazy(() => import("../components/ThreeBackground").then((m) => ({ default: m.ThreeBackground })));
 import { ArrowLeft, ArrowRight, CheckCircle2, Lock, Mail, Sparkles } from "lucide-react";
 
 export function ForgotPasswordPage() {
@@ -12,7 +13,7 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="relative min-h-screen bg-[#070b14] flex flex-col justify-center items-center p-4 sm:p-6 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden overflow-y-auto">
-      <ThreeBackground />
+      <Suspense fallback={null}><ThreeBackground /></Suspense>
       <div className="fixed inset-0 pointer-events-none z-[1] bg-[radial-gradient(circle_at_center,transparent_20%,rgba(7,11,20,0.65)_100%)]" />
 
       <div className="relative z-10 w-full max-w-[420px] mx-auto py-6">
@@ -134,7 +135,7 @@ export function ResetPasswordPage() {
 
   return (
     <div className="relative min-h-screen bg-[#070b14] flex flex-col justify-center items-center p-4 sm:p-6 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden overflow-y-auto">
-      <ThreeBackground />
+      <Suspense fallback={null}><ThreeBackground /></Suspense>
       <div className="fixed inset-0 pointer-events-none z-[1] bg-[radial-gradient(circle_at_center,transparent_20%,rgba(7,11,20,0.65)_100%)]" />
 
       <div className="relative z-10 w-full max-w-[420px] mx-auto py-6">

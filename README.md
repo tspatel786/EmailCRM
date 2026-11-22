@@ -70,7 +70,9 @@ npm run dev
 npm run dev:worker
 ```
 
-5. Open http://localhost:5173 and sign in as `owner@demo.local` / `DemoPass123!`.
+5. Open http://localhost:5173 and sign in as `owner@demo.local` / `DemoPass123!` (local demo data only).
+
+> **Never seed the hosted project.** `npm run seed` creates demo owner accounts with this public password and resets the owner's password, so it refuses to run against anything except a local Supabase (`http://127.0.0.1:54321`).
 
 Full instructions: [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
 

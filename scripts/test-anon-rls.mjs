@@ -24,6 +24,19 @@ const TENANT_TABLES = [
   "projects",
   "audit_logs",
   "inquiry_rate_limits",
+  "messages",
+  "payments",
+  "payment_audit",
+  "suppressions",
+  "email_templates",
+  "email_events",
+  "documents",
+  "notifications",
+  "demo_email_requests",
+  "meetings",
+  "quotation_versions",
+  "contact_emails",
+  "import_batches",
 ];
 
 // 1. Static migration audit: ensure RLS is enabled on every tenant table and no anon read policy exists.

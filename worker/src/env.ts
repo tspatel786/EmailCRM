@@ -26,6 +26,9 @@ export const env = {
   workerId: process.env.WORKER_ID ?? `worker-${process.pid}`,
   pollMs: Number(process.env.WORKER_POLL_MS ?? "2000"),
   batchSize: Number(process.env.WORKER_BATCH_SIZE ?? "10"),
+  // Part of the daily organization limit that bulk campaigns may not use, so replies and
+  // one-to-one mail from the Mails page are never blocked by a running campaign.
+  webmailReserve: Math.max(0, Number(process.env.WEBMAIL_DAILY_RESERVE ?? "10")),
   leaseSeconds: Number(process.env.WORKER_LEASE_SECONDS ?? "120"),
   healthPort: Number(process.env.PORT ?? process.env.WORKER_HEALTH_PORT ?? "8787"),
   appPublicUrl: (process.env.APP_PUBLIC_URL ?? "http://localhost:5173").replace(/\/+$/, ""),

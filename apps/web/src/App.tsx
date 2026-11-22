@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { lazy, Suspense, useState, type ReactElement } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useApplyTheme } from "./lib/theme";
 import { useSession } from "./lib/session";
@@ -7,27 +7,32 @@ import { Button, Spinner } from "./components/ui";
 import { supabase } from "./lib/supabase";
 import { LoginPage } from "./pages/Login";
 import { ForgotPasswordPage, ResetPasswordPage } from "./pages/ForgotPassword";
-import { DashboardPage } from "./pages/Dashboard";
-import { CompaniesPage } from "./pages/Companies";
-import { ContactsPage } from "./pages/Contacts";
-import { ContactDetailPage } from "./pages/ContactDetail";
-import { ImportExcelPage } from "./pages/ImportExcel";
-import { CallsPage } from "./pages/Calls";
-import { FollowUpsPage } from "./pages/FollowUps";
-import { CampaignDetailPage, CampaignsPage } from "./pages/Campaigns";
-import { MailsPage } from "./pages/Mails";
-import { TemplatesPage } from "./pages/Templates";
-import { DealsPage } from "./pages/Deals";
-import { QuotationsPage } from "./pages/Quotations";
-import { PaymentsPage } from "./pages/Payments";
-import { MeetingsPage } from "./pages/Meetings";
-import { ProjectsPage } from "./pages/Projects";
-import { ReportsPage } from "./pages/Reports";
-import { TeamPage } from "./pages/Team";
-import { SettingsPage } from "./pages/Settings";
-import { AuditLogsPage } from "./pages/AuditLogs";
 import { UnsubscribePage } from "./pages/Unsubscribe";
 import { PublicInquiryPage } from "./pages/PublicInquiry";
+
+// App pages are code-split so the login page and first screen load fast; each page's code
+// (and heavy libraries such as charts and Excel) downloads only when it is opened.
+const DashboardPage = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.DashboardPage })));
+const CompaniesPage = lazy(() => import("./pages/Companies").then((m) => ({ default: m.CompaniesPage })));
+const ContactsPage = lazy(() => import("./pages/Contacts").then((m) => ({ default: m.ContactsPage })));
+const ContactDetailPage = lazy(() => import("./pages/ContactDetail").then((m) => ({ default: m.ContactDetailPage })));
+const ImportExcelPage = lazy(() => import("./pages/ImportExcel").then((m) => ({ default: m.ImportExcelPage })));
+const CallsPage = lazy(() => import("./pages/Calls").then((m) => ({ default: m.CallsPage })));
+const FollowUpsPage = lazy(() => import("./pages/FollowUps").then((m) => ({ default: m.FollowUpsPage })));
+const MailsPage = lazy(() => import("./pages/Mails").then((m) => ({ default: m.MailsPage })));
+const TemplatesPage = lazy(() => import("./pages/Templates").then((m) => ({ default: m.TemplatesPage })));
+const DealsPage = lazy(() => import("./pages/Deals").then((m) => ({ default: m.DealsPage })));
+const QuotationsPage = lazy(() => import("./pages/Quotations").then((m) => ({ default: m.QuotationsPage })));
+const PaymentsPage = lazy(() => import("./pages/Payments").then((m) => ({ default: m.PaymentsPage })));
+const MeetingsPage = lazy(() => import("./pages/Meetings").then((m) => ({ default: m.MeetingsPage })));
+const ProjectsPage = lazy(() => import("./pages/Projects").then((m) => ({ default: m.ProjectsPage })));
+const ReportsPage = lazy(() => import("./pages/Reports").then((m) => ({ default: m.ReportsPage })));
+const TeamPage = lazy(() => import("./pages/Team").then((m) => ({ default: m.TeamPage })));
+const SettingsPage = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
+const AuditLogsPage = lazy(() => import("./pages/AuditLogs").then((m) => ({ default: m.AuditLogsPage })));
+const CampaignsPage = lazy(() => import("./pages/Campaigns").then((m) => ({ default: m.CampaignsPage })));
+const CampaignDetailPage = lazy(() => import("./pages/Campaigns").then((m) => ({ default: m.CampaignDetailPage })));
+
 
 function PendingInvites() {
   const { invites, refresh, setOrgId } = useSession();

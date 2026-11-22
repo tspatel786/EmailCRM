@@ -1,3 +1,8 @@
+-- deploy_all.sql: every migration in supabase/migrations concatenated in order, for a FRESH
+-- database only. Generated file - do not edit; regenerate after adding a migration.
+-- For an existing database apply only the new migration files instead.
+
+-- ===================== 0001_extensions.sql =====================
 create extension if not exists "pgcrypto" with schema extensions;
 create extension if not exists "citext" with schema extensions;
 
@@ -13,6 +18,8 @@ end;
 $$;
 
 revoke all on function public.set_updated_at() from public;
+
+-- ===================== 0002_enums.sql =====================
 do $$ begin
   create type public.app_role as enum (
     'owner', 'admin', 'sales_manager', 'sales_executive', 'viewer'
@@ -147,6 +154,8 @@ do $$ begin
   );
 exception when duplicate_object then null;
 end $$;
+
+-- ===================== 0003_core.sql =====================
 create table public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 200),
@@ -249,6 +258,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ===================== 0004_crm.sql =====================
 create table public.companies (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -435,6 +446,8 @@ create trigger contact_lists_updated_at before update on public.contact_lists
   for each row execute function public.set_updated_at();
 create trigger import_batches_updated_at before update on public.import_batches
   for each row execute function public.set_updated_at();
+
+-- ===================== 0005_email.sql =====================
 create table public.email_templates (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -539,6 +552,8 @@ create trigger campaigns_updated_at before update on public.campaigns
   for each row execute function public.set_updated_at();
 create trigger email_jobs_updated_at before update on public.email_jobs
   for each row execute function public.set_updated_at();
+
+-- ===================== 0006_ops.sql =====================
 create table public.calls (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -772,6 +787,8 @@ create trigger quotations_updated_at before update on public.quotations
   for each row execute function public.set_updated_at();
 create trigger projects_updated_at before update on public.projects
   for each row execute function public.set_updated_at();
+
+-- ===================== 0007_functions.sql =====================
 -- Membership helpers are SECURITY DEFINER so RLS on memberships does not recurse.
 -- They only inspect auth.uid() and never accept a target user id.
 
@@ -984,6 +1001,8 @@ grant execute on function public.has_manage_role(uuid) to authenticated;
 grant execute on function public.has_admin_role(uuid) to authenticated;
 grant execute on function public.record_activity(uuid, uuid, uuid, public.activity_type, text, text, text, uuid, timestamptz) to authenticated;
 grant execute on function public.org_email_remaining(uuid) to authenticated;
+
+-- ===================== 0008_rls.sql =====================
 alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;
 alter table public.memberships enable row level security;
@@ -1169,6 +1188,8 @@ create policy activities_select on public.activities for select to authenticated
 create policy activities_insert on public.activities for insert to authenticated with check (public.has_write_role(organization_id));
 -- Timeline rows are append-only for non-admins
 create policy activities_update_admin on public.activities for update to authenticated using (public.has_admin_role(organization_id)) with check (public.has_admin_role(organization_id));
+
+-- ===================== 0009_storage.sql =====================
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'org-documents',
@@ -1210,6 +1231,8 @@ create policy storage_org_docs_delete on storage.objects
     bucket_id = 'org-documents'
     and public.has_admin_role((split_part(name, '/', 1))::uuid)
   );
+
+-- ===================== 0010_grants.sql =====================
 grant usage on schema public to anon, authenticated, service_role;
 
 grant select on all tables in schema public to authenticated;
@@ -1229,6 +1252,8 @@ grant execute on function public.claim_email_jobs(integer, text, integer) to ser
 grant execute on function public.increment_org_email_stat(uuid, integer, integer) to service_role;
 revoke execute on function public.claim_email_jobs(integer, text, integer) from authenticated, anon;
 revoke execute on function public.increment_org_email_stat(uuid, integer, integer) from authenticated, anon;
+
+-- ===================== 0011_upsert_keys.sql =====================
 alter table public.suppressions
   add column if not exists email_normalized text generated always as (lower(email)) stored;
 
@@ -1243,6 +1268,8 @@ drop index if exists public.contacts_org_email_unique;
 create unique index contacts_org_email_unique
   on public.contacts (organization_id, primary_email_normalized)
   where primary_email is not null and archived_at is null;
+
+-- ===================== 0012_rate_limits.sql =====================
 create table public.edge_rate_limits (
   bucket text primary key,
   window_started_at timestamptz not null default now(),
@@ -1307,7 +1334,10 @@ grant execute on function public.consume_rate_limit(text, integer, integer) to s
 grant all on table public.edge_rate_limits to service_role;
 revoke insert, update, delete on public.edge_rate_limits from authenticated;
 
--- 0013: demo_email_requests table and policies
+-- ===================== 0013_demo_email.sql =====================
+-- 0013_demo_email.sql
+-- Table for queuing and tracking demo / test emails sent for email templates
+
 create table if not exists public.demo_email_requests (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -1317,7 +1347,7 @@ create table if not exists public.demo_email_requests (
   subject text not null,
   body_text text not null default '',
   body_html text not null default '',
-  status text not null default 'pending',
+  status text not null default 'pending', -- 'pending', 'processing', 'sent', 'failed'
   error_message text,
   created_at timestamptz not null default now(),
   sent_at timestamptz
@@ -1348,7 +1378,11 @@ create policy demo_email_requests_update on public.demo_email_requests
 grant select, insert, update on public.demo_email_requests to authenticated;
 grant all on public.demo_email_requests to service_role;
 
+-- ===================== 0014_queue_campaign_rpc.sql =====================
 -- 0014_queue_campaign_rpc.sql
+-- Provides a reliable database-level fallback for queueing campaigns
+-- in environments where Edge Functions are not deployed or reach rate limits.
+
 create or replace function public.queue_campaign(
   p_campaign_id uuid,
   p_confirmed boolean default true
@@ -1471,4 +1505,1611 @@ $$;
 revoke all on function public.queue_campaign(uuid, boolean) from public;
 grant execute on function public.queue_campaign(uuid, boolean) to authenticated;
 
+-- ===================== 0015_public_inquiry.sql =====================
+-- 0015_public_inquiry.sql
+-- Additive schema for public lead inquiry form (/inquiry/:orgSlug) and abuse protection.
+-- Safe to run on an existing database with existing data.
+
+-- 1. Note: public.organizations already has a unique `slug` column (0003_core.sql)
+--    and public.contacts already has `consent_captured_at` (0004_crm.sql).
+--    Add nullable `consent_text` on contacts to record the consent wording accepted on submission.
+alter table public.contacts
+  add column if not exists consent_text text;
+
+-- 2. Partial index to speed up mobile duplicate lookup per organization for non-archived contacts.
+create index if not exists contacts_org_phone_idx
+  on public.contacts (organization_id, primary_phone)
+  where primary_phone is not null and archived_at is null;
+
+-- 3. Dedicated rate-limit bucket table for public inquiry submissions (service_role only).
+create table if not exists public.inquiry_rate_limits (
+  bucket text primary key,
+  window_started_at timestamptz not null default now(),
+  hits integer not null default 0 check (hits >= 0)
+);
+
+alter table public.inquiry_rate_limits enable row level security;
+
+drop policy if exists inquiry_rate_limits_deny_anon on public.inquiry_rate_limits;
+create policy inquiry_rate_limits_deny_anon on public.inquiry_rate_limits
+  for all to anon
+  using (false)
+  with check (false);
+
+drop policy if exists inquiry_rate_limits_deny_authenticated on public.inquiry_rate_limits;
+create policy inquiry_rate_limits_deny_authenticated on public.inquiry_rate_limits
+  for all to authenticated
+  using (false)
+  with check (false);
+
+create or replace function public.consume_inquiry_rate_limit(
+  p_bucket text,
+  p_max integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  rec public.inquiry_rate_limits%rowtype;
+begin
+  if current_user not in ('postgres', 'service_role') then
+    raise exception 'consume_inquiry_rate_limit is restricted to service_role';
+  end if;
+  if p_max < 1 or p_window_seconds < 1 then
+    raise exception 'invalid rate limit parameters';
+  end if;
+  if p_bucket is null or length(p_bucket) < 3 or length(p_bucket) > 200 then
+    raise exception 'invalid rate limit bucket';
+  end if;
+
+  insert into public.inquiry_rate_limits (bucket, window_started_at, hits)
+  values (p_bucket, now(), 0)
+  on conflict (bucket) do nothing;
+
+  select * into rec from public.inquiry_rate_limits where bucket = p_bucket for update;
+
+  if rec.window_started_at < now() - make_interval(secs => p_window_seconds) then
+    update public.inquiry_rate_limits
+    set window_started_at = now(), hits = 1
+    where bucket = p_bucket;
+    return true;
+  end if;
+
+  if rec.hits >= p_max then
+    return false;
+  end if;
+
+  update public.inquiry_rate_limits set hits = hits + 1 where bucket = p_bucket;
+  return true;
+end;
+$$;
+
+revoke all on function public.consume_inquiry_rate_limit(text, integer, integer) from public;
+revoke all on function public.consume_inquiry_rate_limit(text, integer, integer) from authenticated, anon;
+grant execute on function public.consume_inquiry_rate_limit(text, integer, integer) to service_role;
+
+revoke all on table public.inquiry_rate_limits from public, anon, authenticated;
+grant all on table public.inquiry_rate_limits to service_role;
+
+-- Rollback notes (run manually only if reverting this feature completely):
+-- drop function if exists public.consume_inquiry_rate_limit(text, integer, integer);
+-- drop table if exists public.inquiry_rate_limits;
+-- drop index if exists public.contacts_org_phone_idx;
+-- alter table public.contacts drop column if exists consent_text;
+
+-- ===================== 0016_messages_and_webmail.sql =====================
+-- 0016_messages_and_webmail.sql
+-- Unified Webmail message store for Inbox (inbound emails/replies), Sent (outbound dispatches),
+-- Drafts, Queued, and Failed messages. Supports multi-tenant RLS, Resend message tracking,
+-- and contact association.
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  contact_id uuid references public.contacts (id) on delete set null,
+  direction text not null check (direction in ('inbound', 'outbound')),
+  folder text not null default 'inbox' check (folder in ('inbox', 'sent', 'queued', 'failed', 'trash', 'draft')),
+  status text not null default 'delivered' check (status in ('received', 'queued', 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'failed')),
+  from_name text not null default '',
+  from_email text not null,
+  to_name text not null default '',
+  to_email text not null,
+  reply_to text,
+  subject text not null default '(No Subject)',
+  body_text text not null default '',
+  body_html text not null default '',
+  provider text not null default 'resend',
+  provider_message_id text,
+  thread_id text,
+  in_reply_to text,
+  is_read boolean not null default false,
+  is_starred boolean not null default false,
+  read_at timestamptz,
+  headers jsonb not null default '{}'::jsonb,
+  raw_payload jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists messages_org_folder_idx
+  on public.messages (organization_id, folder, created_at desc);
+
+create index if not exists messages_org_contact_idx
+  on public.messages (organization_id, contact_id, created_at desc);
+
+create index if not exists messages_provider_id_idx
+  on public.messages (provider_message_id)
+  where provider_message_id is not null;
+
+create index if not exists messages_org_unread_idx
+  on public.messages (organization_id, folder, is_read)
+  where is_read = false;
+
+create trigger messages_updated_at before update on public.messages
+  for each row execute function public.set_updated_at();
+
+-- RLS
+alter table public.messages enable row level security;
+
+-- Members can select messages of their organization
+create policy "members_read_org_messages" on public.messages
+  for select
+  using (public.is_org_member(organization_id));
+
+-- Members can insert outbound messages for their organization
+create policy "members_insert_org_messages" on public.messages
+  for insert
+  with check (public.is_org_member(organization_id));
+
+-- Members can update folder / is_read / is_starred of their organization's messages
+create policy "members_update_org_messages" on public.messages
+  for update
+  using (public.is_org_member(organization_id))
+  with check (public.is_org_member(organization_id));
+
+-- Service role bypasses RLS automatically (used by worker and webhook edge functions)
+grant select, insert, update on public.messages to authenticated;
+
+-- ===================== 0017_ownership_columns.sql =====================
+-- 0017_ownership_columns.sql
+-- Adds a single-owner attribution column to every primary CRM/record table so RLS
+-- can enforce "private by default" visibility in a later migration. Purely additive:
+-- columns are nullable and no policy behavior changes in this migration.
+
+alter table public.companies add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.contacts add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.calls add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.tasks add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.meetings add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.deals add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.quotations add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.projects add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.documents add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.messages add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.demo_email_requests add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+alter table public.import_batches add column if not exists owner_user_id uuid references public.profiles (id) on delete set null;
+
+create index if not exists companies_org_owner_idx on public.companies (organization_id, owner_user_id);
+create index if not exists contacts_org_owner_idx on public.contacts (organization_id, owner_user_id);
+create index if not exists calls_org_owner_idx on public.calls (organization_id, owner_user_id);
+create index if not exists tasks_org_owner_idx on public.tasks (organization_id, owner_user_id);
+create index if not exists meetings_org_owner_idx on public.meetings (organization_id, owner_user_id);
+create index if not exists deals_org_owner_idx on public.deals (organization_id, owner_user_id);
+create index if not exists quotations_org_owner_idx on public.quotations (organization_id, owner_user_id);
+create index if not exists projects_org_owner_idx on public.projects (organization_id, owner_user_id);
+create index if not exists documents_org_owner_idx on public.documents (organization_id, owner_user_id);
+create index if not exists messages_org_owner_idx on public.messages (organization_id, owner_user_id);
+create index if not exists demo_email_requests_org_owner_idx on public.demo_email_requests (organization_id, owner_user_id);
+create index if not exists import_batches_org_owner_idx on public.import_batches (organization_id, owner_user_id);
+
+-- ===================== 0018_ownership_backfill.sql =====================
+-- 0018_ownership_backfill.sql
+-- Data-only migration: populate owner_user_id from the best existing attribution
+-- column, falling back to the organization's owner-role member. owner_user_id is
+-- intentionally left nullable forever -- a null owner stays admin-only visible
+-- (see 0020/0021) rather than forcing a risky NOT NULL cutover on legacy rows.
+
+update public.companies t
+set owner_user_id = coalesce(
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.contacts t
+set owner_user_id = coalesce(
+  t.assigned_to,
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.calls t
+set owner_user_id = t.employee_id
+where t.owner_user_id is null;
+
+update public.tasks t
+set owner_user_id = coalesce(
+  t.assigned_to,
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.meetings t
+set owner_user_id = coalesce(
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.deals t
+set owner_user_id = coalesce(
+  t.owner_id,
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.quotations t
+set owner_user_id = coalesce(
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.projects t
+set owner_user_id = coalesce(
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.documents t
+set owner_user_id = coalesce(
+  t.uploaded_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.messages t
+set owner_user_id = (
+  select m.user_id from public.memberships m
+  where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+  order by m.created_at limit 1
+)
+where t.owner_user_id is null;
+
+update public.demo_email_requests t
+set owner_user_id = coalesce(
+  t.requested_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+update public.import_batches t
+set owner_user_id = coalesce(
+  t.created_by,
+  (select m.user_id from public.memberships m
+   where m.organization_id = t.organization_id and m.role = 'owner' and m.status = 'active'
+   order by m.created_at limit 1)
+)
+where t.owner_user_id is null;
+
+-- ===================== 0019_accept_invite_rpc.sql =====================
+-- 0019_accept_invite_rpc.sql
+-- Fixes the invite-acceptance gap: invite-member sets memberships.status = 'invited'
+-- but nothing ever flipped it to 'active' except organization-bootstrap (first owner
+-- only). This RPC lets the invited user self-activate their own membership.
+
+create or replace function public.accept_invite(p_organization_id uuid)
+returns public.memberships
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.memberships;
+begin
+  update public.memberships
+  set status = 'active', accepted_at = now()
+  where organization_id = p_organization_id
+    and user_id = auth.uid()
+    and status = 'invited'
+  returning * into v_row;
+
+  if v_row.user_id is null then
+    raise exception 'no pending invite found for this organization';
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.accept_invite(uuid) from public;
+grant execute on function public.accept_invite(uuid) to authenticated;
+
+-- ===================== 0020_private_rls_tier_a.sql =====================
+-- 0020_private_rls_tier_a.sql
+-- Private-by-default RLS for primary record tables: an employee sees/writes only
+-- records they own; owner/admin role ("Super Admin", org-scoped) sees/manages all
+-- records in their own organization. Cross-org access is unaffected (is_org_member/
+-- has_admin_role already enforce the organization boundary).
+--
+-- A BEFORE UPDATE trigger additionally blocks any non-admin from changing
+-- owner_user_id or organization_id on their own records, regardless of role overlap
+-- across multiple org memberships.
+
+create or replace function public.prevent_ownership_tamper()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if current_user in ('postgres', 'service_role') then
+    return new;
+  end if;
+
+  if new.organization_id is distinct from old.organization_id
+     and not public.has_admin_role(old.organization_id) then
+    raise exception 'organization_id cannot be changed';
+  end if;
+
+  if new.owner_user_id is distinct from old.owner_user_id
+     and not public.has_admin_role(old.organization_id) then
+    raise exception 'owner_user_id can only be changed by an organization admin';
+  end if;
+
+  return new;
+end;
+$$;
+
+-- companies ------------------------------------------------------------
+drop policy if exists companies_select on public.companies;
+drop policy if exists companies_insert on public.companies;
+drop policy if exists companies_update on public.companies;
+
+create policy companies_select on public.companies for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy companies_insert on public.companies for insert to authenticated with check (
+  public.has_write_role(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy companies_update on public.companies for update to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists companies_prevent_tamper on public.companies;
+create trigger companies_prevent_tamper before update on public.companies
+  for each row execute function public.prevent_ownership_tamper();
+
+-- contacts -------------------------------------------------------------
+drop policy if exists contacts_select on public.contacts;
+drop policy if exists contacts_insert on public.contacts;
+drop policy if exists contacts_update on public.contacts;
+
+create policy contacts_select on public.contacts for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy contacts_insert on public.contacts for insert to authenticated with check (
+  public.has_write_role(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy contacts_update on public.contacts for update to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists contacts_prevent_tamper on public.contacts;
+create trigger contacts_prevent_tamper before update on public.contacts
+  for each row execute function public.prevent_ownership_tamper();
+
+-- calls ------------------------------------------------------------------
+drop policy if exists calls_write on public.calls;
+drop policy if exists calls_select on public.calls;
+
+create policy calls_select on public.calls for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy calls_write on public.calls for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists calls_prevent_tamper on public.calls;
+create trigger calls_prevent_tamper before update on public.calls
+  for each row execute function public.prevent_ownership_tamper();
+
+-- tasks --------------------------------------------------------------------
+drop policy if exists tasks_write on public.tasks;
+drop policy if exists tasks_select on public.tasks;
+
+create policy tasks_select on public.tasks for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy tasks_write on public.tasks for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists tasks_prevent_tamper on public.tasks;
+create trigger tasks_prevent_tamper before update on public.tasks
+  for each row execute function public.prevent_ownership_tamper();
+
+-- meetings (owner OR listed attendee may view/collaborate) -----------------
+drop policy if exists meetings_write on public.meetings;
+drop policy if exists meetings_select on public.meetings;
+
+create policy meetings_select on public.meetings for select to authenticated using (
+  public.is_org_member(organization_id) and (
+    owner_user_id = auth.uid()
+    or public.has_admin_role(organization_id)
+    or exists (select 1 from public.meeting_attendees ma where ma.meeting_id = meetings.id and ma.user_id = auth.uid())
+  )
+);
+create policy meetings_write on public.meetings for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists meetings_prevent_tamper on public.meetings;
+create trigger meetings_prevent_tamper before update on public.meetings
+  for each row execute function public.prevent_ownership_tamper();
+
+-- deals ----------------------------------------------------------------------
+drop policy if exists deals_write on public.deals;
+drop policy if exists deals_select on public.deals;
+
+create policy deals_select on public.deals for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy deals_write on public.deals for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists deals_prevent_tamper on public.deals;
+create trigger deals_prevent_tamper before update on public.deals
+  for each row execute function public.prevent_ownership_tamper();
+
+-- quotations -------------------------------------------------------------------
+drop policy if exists quotations_write on public.quotations;
+drop policy if exists quotations_select on public.quotations;
+
+create policy quotations_select on public.quotations for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy quotations_write on public.quotations for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists quotations_prevent_tamper on public.quotations;
+create trigger quotations_prevent_tamper before update on public.quotations
+  for each row execute function public.prevent_ownership_tamper();
+
+-- projects (owner OR listed project member may view/collaborate) -----------------
+drop policy if exists projects_write on public.projects;
+drop policy if exists projects_select on public.projects;
+
+create policy projects_select on public.projects for select to authenticated using (
+  public.is_org_member(organization_id) and (
+    owner_user_id = auth.uid()
+    or public.has_admin_role(organization_id)
+    or exists (select 1 from public.project_members pm where pm.project_id = projects.id and pm.user_id = auth.uid())
+  )
+);
+create policy projects_write on public.projects for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists projects_prevent_tamper on public.projects;
+create trigger projects_prevent_tamper before update on public.projects
+  for each row execute function public.prevent_ownership_tamper();
+
+-- documents -------------------------------------------------------------------
+drop policy if exists documents_write on public.documents;
+drop policy if exists documents_select on public.documents;
+
+create policy documents_select on public.documents for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy documents_write on public.documents for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists documents_prevent_tamper on public.documents;
+create trigger documents_prevent_tamper before update on public.documents
+  for each row execute function public.prevent_ownership_tamper();
+
+-- messages (Webmail) -----------------------------------------------------------
+drop policy if exists members_read_org_messages on public.messages;
+drop policy if exists members_insert_org_messages on public.messages;
+drop policy if exists members_update_org_messages on public.messages;
+
+create policy members_read_org_messages on public.messages for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy members_insert_org_messages on public.messages for insert to authenticated with check (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy members_update_org_messages on public.messages for update to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists messages_prevent_tamper on public.messages;
+create trigger messages_prevent_tamper before update on public.messages
+  for each row execute function public.prevent_ownership_tamper();
+
+-- demo_email_requests -----------------------------------------------------------
+drop policy if exists demo_email_requests_select on public.demo_email_requests;
+drop policy if exists demo_email_requests_insert on public.demo_email_requests;
+drop policy if exists demo_email_requests_update on public.demo_email_requests;
+
+create policy demo_email_requests_select on public.demo_email_requests for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy demo_email_requests_insert on public.demo_email_requests for insert to authenticated with check (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy demo_email_requests_update on public.demo_email_requests for update to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists demo_email_requests_prevent_tamper on public.demo_email_requests;
+create trigger demo_email_requests_prevent_tamper before update on public.demo_email_requests
+  for each row execute function public.prevent_ownership_tamper();
+
+-- import_batches -----------------------------------------------------------------
+drop policy if exists import_batches_write on public.import_batches;
+drop policy if exists import_batches_select on public.import_batches;
+
+create policy import_batches_select on public.import_batches for select to authenticated using (
+  public.is_org_member(organization_id) and (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+);
+create policy import_batches_write on public.import_batches for all to authenticated
+  using (owner_user_id = auth.uid() or public.has_admin_role(organization_id))
+  with check (owner_user_id = auth.uid() or public.has_admin_role(organization_id));
+
+drop trigger if exists import_batches_prevent_tamper on public.import_batches;
+create trigger import_batches_prevent_tamper before update on public.import_batches
+  for each row execute function public.prevent_ownership_tamper();
+
+-- ===================== 0021_private_rls_tier_b.sql =====================
+-- 0021_private_rls_tier_b.sql
+-- Child/detail tables have no owner_user_id of their own -- they inherit visibility
+-- from their parent Tier A record (0020). contact_tags, contact_lists and
+-- contact_list_members remain org-shared (Tier C, unchanged): they're campaign
+-- targeting config, not personal pipeline data.
+
+-- contact_emails (inherits contacts.owner_user_id) --------------------------------
+drop policy if exists contact_emails_select on public.contact_emails;
+drop policy if exists contact_emails_write on public.contact_emails;
+
+create policy contact_emails_select on public.contact_emails for select to authenticated using (
+  exists (
+    select 1 from public.contacts c
+    where c.id = contact_emails.contact_id
+      and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+  )
+);
+create policy contact_emails_write on public.contact_emails for all to authenticated
+  using (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_emails.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_emails.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  );
+
+-- contact_phones (inherits contacts.owner_user_id) --------------------------------
+drop policy if exists contact_phones_select on public.contact_phones;
+drop policy if exists contact_phones_write on public.contact_phones;
+
+create policy contact_phones_select on public.contact_phones for select to authenticated using (
+  exists (
+    select 1 from public.contacts c
+    where c.id = contact_phones.contact_id
+      and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+  )
+);
+create policy contact_phones_write on public.contact_phones for all to authenticated
+  using (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_phones.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_phones.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  );
+
+-- contact_tag_map (inherits contacts.owner_user_id) -------------------------------
+drop policy if exists contact_tag_map_select on public.contact_tag_map;
+drop policy if exists contact_tag_map_write on public.contact_tag_map;
+
+create policy contact_tag_map_select on public.contact_tag_map for select to authenticated using (
+  exists (
+    select 1 from public.contacts c
+    where c.id = contact_tag_map.contact_id
+      and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+  )
+);
+create policy contact_tag_map_write on public.contact_tag_map for all to authenticated
+  using (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_tag_map.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.contacts c
+      where c.id = contact_tag_map.contact_id
+        and (c.owner_user_id = auth.uid() or public.has_admin_role(c.organization_id))
+    )
+  );
+
+-- quotation_versions (inherits quotations.owner_user_id) --------------------------
+drop policy if exists quotation_versions_select on public.quotation_versions;
+drop policy if exists quotation_versions_write on public.quotation_versions;
+
+create policy quotation_versions_select on public.quotation_versions for select to authenticated using (
+  exists (
+    select 1 from public.quotations q
+    where q.id = quotation_versions.quotation_id
+      and (q.owner_user_id = auth.uid() or public.has_admin_role(q.organization_id))
+  )
+);
+create policy quotation_versions_write on public.quotation_versions for all to authenticated
+  using (
+    exists (
+      select 1 from public.quotations q
+      where q.id = quotation_versions.quotation_id
+        and (q.owner_user_id = auth.uid() or public.has_admin_role(q.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.quotations q
+      where q.id = quotation_versions.quotation_id
+        and (q.owner_user_id = auth.uid() or public.has_admin_role(q.organization_id))
+    )
+  );
+
+-- project_milestones (inherits projects.owner_user_id, OR listed project member) ---
+drop policy if exists project_milestones_select on public.project_milestones;
+drop policy if exists project_milestones_write on public.project_milestones;
+
+create policy project_milestones_select on public.project_milestones for select to authenticated using (
+  exists (
+    select 1 from public.projects p
+    where p.id = project_milestones.project_id
+      and (
+        p.owner_user_id = auth.uid()
+        or public.has_admin_role(p.organization_id)
+        or exists (select 1 from public.project_members pm where pm.project_id = p.id and pm.user_id = auth.uid())
+      )
+  )
+);
+create policy project_milestones_write on public.project_milestones for all to authenticated
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_milestones.project_id
+        and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_milestones.project_id
+        and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+    )
+  );
+
+-- project_members (visible to the project owner, admins, and fellow members) ------
+drop policy if exists project_members_select on public.project_members;
+drop policy if exists project_members_write on public.project_members;
+
+create policy project_members_select on public.project_members for select to authenticated using (
+  user_id = auth.uid()
+  or exists (
+    select 1 from public.projects p
+    where p.id = project_members.project_id
+      and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+  )
+);
+create policy project_members_write on public.project_members for all to authenticated
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_members.project_id
+        and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_members.project_id
+        and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+    )
+  );
+
+-- meeting_attendees (visible to the meeting owner, admins, and fellow attendees) ---
+drop policy if exists meeting_attendees_select on public.meeting_attendees;
+drop policy if exists meeting_attendees_write on public.meeting_attendees;
+
+create policy meeting_attendees_select on public.meeting_attendees for select to authenticated using (
+  user_id = auth.uid()
+  or exists (
+    select 1 from public.meetings m
+    where m.id = meeting_attendees.meeting_id
+      and (m.owner_user_id = auth.uid() or public.has_admin_role(m.organization_id))
+  )
+);
+create policy meeting_attendees_write on public.meeting_attendees for all to authenticated
+  using (
+    exists (
+      select 1 from public.meetings m
+      where m.id = meeting_attendees.meeting_id
+        and (m.owner_user_id = auth.uid() or public.has_admin_role(m.organization_id))
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.meetings m
+      where m.id = meeting_attendees.meeting_id
+        and (m.owner_user_id = auth.uid() or public.has_admin_role(m.organization_id))
+    )
+  );
+
+-- import_errors (inherits import_batches.owner_user_id) ---------------------------
+drop policy if exists import_errors_select on public.import_errors;
+drop policy if exists import_errors_insert on public.import_errors;
+
+create policy import_errors_select on public.import_errors for select to authenticated using (
+  exists (
+    select 1 from public.import_batches b
+    where b.id = import_errors.batch_id
+      and (b.owner_user_id = auth.uid() or public.has_admin_role(b.organization_id))
+  )
+);
+create policy import_errors_insert on public.import_errors for insert to authenticated with check (
+  exists (
+    select 1 from public.import_batches b
+    where b.id = import_errors.batch_id
+      and (b.owner_user_id = auth.uid() or public.has_admin_role(b.organization_id))
+  )
+);
+
+-- ===================== 0022_activities_and_audit_rls.sql =====================
+-- 0022_activities_and_audit_rls.sql
+-- activities: visible to the person who performed it, the owner of the linked
+-- contact, or an org admin. audit_logs: tightened to admin-only (Super Admin),
+-- matching the UI gate's original intent (previously any org member could read it).
+
+drop policy if exists activities_select on public.activities;
+
+create policy activities_select on public.activities for select to authenticated using (
+  public.is_org_member(organization_id)
+  and (
+    actor_user_id = auth.uid()
+    or public.has_admin_role(organization_id)
+    or exists (
+      select 1 from public.contacts c
+      where c.id = activities.contact_id
+        and c.owner_user_id = auth.uid()
+    )
+  )
+);
+
+drop policy if exists audit_logs_select on public.audit_logs;
+
+create policy audit_logs_select on public.audit_logs for select to authenticated using (
+  public.has_admin_role(organization_id)
+);
+
+-- ===================== 0023_fix_recursive_rls.sql =====================
+-- 0023_fix_recursive_rls.sql
+-- meetings<->meeting_attendees and projects<->project_members each query each
+-- other directly inside their RLS policies, which causes Postgres to recurse
+-- into the other table's policy and back ("infinite recursion detected in
+-- policy for relation ..."). Fix: route the cross-table checks through
+-- SECURITY DEFINER helpers (same pattern as is_org_member/my_org_role in
+-- 0007_functions.sql) so the inner lookup bypasses RLS instead of
+-- re-evaluating it.
+
+create or replace function public.is_meeting_owner_or_admin(p_meeting_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.meetings m
+    where m.id = p_meeting_id
+      and (m.owner_user_id = auth.uid() or public.has_admin_role(m.organization_id))
+  );
+$$;
+
+create or replace function public.is_meeting_attendee(p_meeting_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.meeting_attendees ma
+    where ma.meeting_id = p_meeting_id
+      and ma.user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_project_owner_or_admin(p_project_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.projects p
+    where p.id = p_project_id
+      and (p.owner_user_id = auth.uid() or public.has_admin_role(p.organization_id))
+  );
+$$;
+
+create or replace function public.is_project_member(p_project_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.project_members pm
+    where pm.project_id = p_project_id
+      and pm.user_id = auth.uid()
+  );
+$$;
+
+-- meetings ---------------------------------------------------------------
+drop policy if exists meetings_select on public.meetings;
+create policy meetings_select on public.meetings for select to authenticated using (
+  public.is_org_member(organization_id) and (
+    owner_user_id = auth.uid()
+    or public.has_admin_role(organization_id)
+    or public.is_meeting_attendee(id)
+  )
+);
+
+-- meeting_attendees --------------------------------------------------------
+drop policy if exists meeting_attendees_select on public.meeting_attendees;
+drop policy if exists meeting_attendees_write on public.meeting_attendees;
+
+create policy meeting_attendees_select on public.meeting_attendees for select to authenticated using (
+  user_id = auth.uid() or public.is_meeting_owner_or_admin(meeting_id)
+);
+create policy meeting_attendees_write on public.meeting_attendees for all to authenticated
+  using (public.is_meeting_owner_or_admin(meeting_id))
+  with check (public.is_meeting_owner_or_admin(meeting_id));
+
+-- projects -----------------------------------------------------------------
+drop policy if exists projects_select on public.projects;
+create policy projects_select on public.projects for select to authenticated using (
+  public.is_org_member(organization_id) and (
+    owner_user_id = auth.uid()
+    or public.has_admin_role(organization_id)
+    or public.is_project_member(id)
+  )
+);
+
+-- project_members ------------------------------------------------------------
+drop policy if exists project_members_select on public.project_members;
+drop policy if exists project_members_write on public.project_members;
+
+create policy project_members_select on public.project_members for select to authenticated using (
+  user_id = auth.uid() or public.is_project_owner_or_admin(project_id)
+);
+create policy project_members_write on public.project_members for all to authenticated
+  using (public.is_project_owner_or_admin(project_id))
+  with check (public.is_project_owner_or_admin(project_id));
+
+-- project_milestones (was also indirectly recursive via the raw `projects` join) --
+drop policy if exists project_milestones_select on public.project_milestones;
+drop policy if exists project_milestones_write on public.project_milestones;
+
+create policy project_milestones_select on public.project_milestones for select to authenticated using (
+  public.is_project_owner_or_admin(project_id) or public.is_project_member(project_id)
+);
+create policy project_milestones_write on public.project_milestones for all to authenticated
+  using (public.is_project_owner_or_admin(project_id))
+  with check (public.is_project_owner_or_admin(project_id));
+
+-- ===================== 0024_outbound_message_retry.sql =====================
+-- 0024_outbound_message_retry.sql
+-- Outbound Webmail replies (messages.direction = 'outbound') were claimed by immediately
+-- writing folder='sent' before the send was attempted, so a worker crash mid-send left the
+-- row permanently mislabeled as sent with no retry/backoff/daily-quota path. Add the same
+-- claim/retry bookkeeping already used by the campaign queue (email_jobs) so outbound
+-- messages get correct status transitions and crash recovery. Additive only; no existing
+-- column, row, or constraint is altered destructively.
+
+alter table public.messages
+  add column if not exists attempt_count integer not null default 0,
+  add column if not exists max_attempts integer not null default 5,
+  add column if not exists locked_until timestamptz,
+  add column if not exists next_attempt_at timestamptz not null default now(),
+  add column if not exists last_error text;
+
+alter table public.messages drop constraint if exists messages_status_check;
+alter table public.messages add constraint messages_status_check
+  check (status in ('received', 'queued', 'processing', 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'failed'));
+
+create index if not exists messages_outbound_claim_idx
+  on public.messages (organization_id, next_attempt_at)
+  where direction = 'outbound' and folder = 'queued' and status = 'queued';
+
+-- ===================== 0025_manager_view_all_and_private_campaigns.sql =====================
+-- 0025_manager_view_all_and_private_campaigns.sql
+-- Visibility model (requested by the business owner):
+--   * Employees (sales_executive, viewer) see only records they own.
+--   * owner, admin AND sales_manager can VIEW every record in their organization.
+--     Writes on other people's records stay owner/admin only (unchanged).
+--   * Campaigns and their per-recipient jobs/events are visible only to
+--     owner/admin/sales_manager (they expose recipient addresses of everyone's contacts).
+-- Only SELECT policies are altered; audit_logs stays admin-only. Rollback: rollback/0025_rollback.sql
+
+create or replace function public.has_view_all_role(p_org uuid)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select public.my_org_role(p_org) in ('owner', 'admin', 'sales_manager');
+$$;
+
+revoke all on function public.has_view_all_role(uuid) from public, anon;
+grant execute on function public.has_view_all_role(uuid) to authenticated, service_role;
+
+alter policy "activities_select" on public.activities using (is_org_member(organization_id) AND ((actor_user_id = auth.uid()) OR has_view_all_role(organization_id) OR (EXISTS ( SELECT 1 FROM contacts c WHERE ((c.id = activities.contact_id) AND (c.owner_user_id = auth.uid()))))));
+
+alter policy "calls_select" on public.calls using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "campaigns_select" on public.campaigns using (is_org_member(organization_id) AND has_manage_role(organization_id));
+
+alter policy "companies_select" on public.companies using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "contact_emails_select" on public.contact_emails using (EXISTS ( SELECT 1 FROM contacts c WHERE ((c.id = contact_emails.contact_id) AND ((c.owner_user_id = auth.uid()) OR has_view_all_role(c.organization_id)))));
+
+alter policy "contact_phones_select" on public.contact_phones using (EXISTS ( SELECT 1 FROM contacts c WHERE ((c.id = contact_phones.contact_id) AND ((c.owner_user_id = auth.uid()) OR has_view_all_role(c.organization_id)))));
+
+alter policy "contact_tag_map_select" on public.contact_tag_map using (EXISTS ( SELECT 1 FROM contacts c WHERE ((c.id = contact_tag_map.contact_id) AND ((c.owner_user_id = auth.uid()) OR has_view_all_role(c.organization_id)))));
+
+alter policy "contacts_select" on public.contacts using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "deals_select" on public.deals using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "demo_email_requests_select" on public.demo_email_requests using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "documents_select" on public.documents using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "email_events_select" on public.email_events using (is_org_member(organization_id) AND has_manage_role(organization_id));
+
+alter policy "email_jobs_select" on public.email_jobs using (is_org_member(organization_id) AND has_manage_role(organization_id));
+
+alter policy "import_batches_select" on public.import_batches using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "import_errors_select" on public.import_errors using (EXISTS ( SELECT 1 FROM import_batches b WHERE ((b.id = import_errors.batch_id) AND ((b.owner_user_id = auth.uid()) OR has_view_all_role(b.organization_id)))));
+
+alter policy "meeting_attendees_select" on public.meeting_attendees using (((user_id = auth.uid()) OR is_meeting_owner_or_admin(meeting_id)) OR EXISTS (SELECT 1 FROM meetings m WHERE m.id = meeting_attendees.meeting_id AND has_view_all_role(m.organization_id)));
+
+alter policy "meetings_select" on public.meetings using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id) OR is_meeting_attendee(id)));
+
+alter policy "members_read_org_messages" on public.messages using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "project_members_select" on public.project_members using (((user_id = auth.uid()) OR is_project_owner_or_admin(project_id)) OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_members.project_id AND has_view_all_role(p.organization_id)));
+
+alter policy "project_milestones_select" on public.project_milestones using ((is_project_owner_or_admin(project_id) OR is_project_member(project_id)) OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_milestones.project_id AND has_view_all_role(p.organization_id)));
+
+alter policy "projects_select" on public.projects using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id) OR is_project_member(id)));
+
+alter policy "quotation_versions_select" on public.quotation_versions using (EXISTS ( SELECT 1 FROM quotations q WHERE ((q.id = quotation_versions.quotation_id) AND ((q.owner_user_id = auth.uid()) OR has_view_all_role(q.organization_id)))));
+
+alter policy "quotations_select" on public.quotations using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+alter policy "tasks_select" on public.tasks using (is_org_member(organization_id) AND ((owner_user_id = auth.uid()) OR has_view_all_role(organization_id)));
+
+-- ===================== 0026_mail_composer.sql =====================
+-- 0026_mail_composer.sql
+-- Gmail-style composer for the Webmail module (public.messages):
+--   * CC / BCC recipients, company link, attachments, RFC Message-ID for threading
+--   * Drafts (folder = 'draft', status = 'draft'), editable and deletable by their owner
+--   * Per-user email signature (profiles.email_signature_html)
+--   * Storage: private "mail-attachments" bucket, public "mail-images" bucket (inline images
+--     must be reachable by the recipient's mail client)
+--   * A guard trigger so browser clients can only create drafts/queued outbound mail as
+--     themselves and can never rewrite mail that is already queued, sent or received.
+-- Additive: existing rows, campaign tables and the inbound/tracking pipeline are untouched.
+-- Rollback: supabase/rollback/0026_rollback.sql
+
+-- 1. Columns ------------------------------------------------------------------------------
+alter table public.messages
+  add column if not exists cc text[] not null default '{}',
+  add column if not exists bcc text[] not null default '{}',
+  add column if not exists company_id uuid references public.companies (id) on delete set null,
+  add column if not exists attachments jsonb not null default '[]'::jsonb,
+  add column if not exists rfc_message_id text;
+
+alter table public.messages drop constraint if exists messages_status_check;
+alter table public.messages add constraint messages_status_check
+  check (status in ('draft', 'received', 'queued', 'processing', 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'failed'));
+
+alter table public.messages drop constraint if exists messages_attachments_is_array;
+alter table public.messages add constraint messages_attachments_is_array
+  check (jsonb_typeof(attachments) = 'array');
+
+create index if not exists messages_thread_idx on public.messages (organization_id, thread_id, created_at)
+  where thread_id is not null;
+create index if not exists messages_rfc_id_idx on public.messages (rfc_message_id)
+  where rfc_message_id is not null;
+
+alter table public.profiles
+  add column if not exists email_signature_html text not null default '';
+
+alter table public.profiles drop constraint if exists profiles_signature_len;
+alter table public.profiles add constraint profiles_signature_len
+  check (length(email_signature_html) <= 20000);
+
+-- 2. Attachment validation ---------------------------------------------------------------
+-- Every attachment must live in the sender's own folder: {org}/{owner}/... and the set is
+-- capped (10 files, 10 MB each, 20 MB total; Resend's hard limit is 40 MB per email).
+create or replace function public.messages_attachments_valid(p_org uuid, p_owner uuid, p_att jsonb)
+returns boolean
+language plpgsql
+immutable
+as $$
+declare
+  a jsonb;
+  total bigint := 0;
+  prefix text := p_org::text || '/' || coalesce(p_owner::text, '-') || '/';
+begin
+  if p_att is null or jsonb_typeof(p_att) <> 'array' then return false; end if;
+  if jsonb_array_length(p_att) > 10 then return false; end if;
+  for a in select * from jsonb_array_elements(p_att) loop
+    if jsonb_typeof(a) <> 'object'
+       or coalesce(a->>'path', '') = ''
+       or left(a->>'path', length(prefix)) <> prefix
+       or position('..' in a->>'path') > 0
+       or coalesce(a->>'name', '') = ''
+       or length(a->>'name') > 255
+       or coalesce((a->>'size')::bigint, 0) <= 0
+       or (a->>'size')::bigint > 10485760 then
+      return false;
+    end if;
+    total := total + (a->>'size')::bigint;
+  end loop;
+  return total <= 20971520;
+end;
+$$;
+
+-- 3. Client guard ------------------------------------------------------------------------
+create or replace function public.messages_client_guard()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  n_recipients int;
+begin
+  -- Worker, webhooks and migrations run as service_role/postgres and are not restricted.
+  if current_user in ('postgres', 'service_role', 'supabase_admin') then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and old.folder <> 'draft' then
+    -- Queued / sent / received mail is immutable from the browser except read/star flags.
+    if (to_jsonb(new) - array['is_read', 'is_starred', 'read_at', 'updated_at'])
+       is distinct from (to_jsonb(old) - array['is_read', 'is_starred', 'read_at', 'updated_at']) then
+      raise exception 'Only read/star flags can be changed on this message';
+    end if;
+    return new;
+  end if;
+
+  -- INSERT, or UPDATE of a draft (editing it, or sending it).
+  if new.owner_user_id is distinct from auth.uid() then
+    raise exception 'Messages can only be composed as yourself';
+  end if;
+  if tg_op = 'UPDATE' and old.owner_user_id is distinct from auth.uid() then
+    raise exception 'Only the author can edit a draft';
+  end if;
+  if not public.has_write_role(new.organization_id) then
+    raise exception 'Your role cannot send email';
+  end if;
+  if new.direction <> 'outbound' then
+    raise exception 'Only outbound messages can be composed';
+  end if;
+  if not ((new.folder = 'draft' and new.status = 'draft') or (new.folder = 'queued' and new.status = 'queued')) then
+    raise exception 'New messages must be a draft or queued';
+  end if;
+
+  n_recipients := coalesce(array_length(new.cc, 1), 0) + coalesce(array_length(new.bcc, 1), 0)
+                  + case when coalesce(new.to_email, '') = '' then 0 else 1 end;
+  if n_recipients > 50 then
+    raise exception 'Too many recipients (max 50)';
+  end if;
+  if new.folder = 'queued' and coalesce(new.to_email, '') = '' then
+    raise exception 'A recipient is required';
+  end if;
+  if length(new.body_html) > 1000000 or length(new.body_text) > 500000 then
+    raise exception 'Message body is too large';
+  end if;
+  if not public.messages_attachments_valid(new.organization_id, new.owner_user_id, new.attachments) then
+    raise exception 'Invalid attachments';
+  end if;
+
+  -- Provider bookkeeping is owned by the worker.
+  new.provider_message_id := null;
+  new.attempt_count := 0;
+  new.locked_until := null;
+  new.last_error := null;
+  new.is_read := true;
+  if new.folder = 'queued' then
+    new.next_attempt_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_client_guard on public.messages;
+create trigger messages_client_guard
+  before insert or update on public.messages
+  for each row execute function public.messages_client_guard();
+
+-- Drafts may be discarded by their author (sent/received mail is never deleted by clients).
+drop policy if exists messages_delete_own_draft on public.messages;
+create policy messages_delete_own_draft on public.messages
+  for delete to authenticated
+  using (owner_user_id = auth.uid() and folder = 'draft');
+
+grant delete on public.messages to authenticated;
+
+-- 4. Storage -----------------------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'mail-attachments', 'mail-attachments', false, 10485760,
+  array[
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/csv', 'text/plain',
+    'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+    'application/zip'
+  ]
+)
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('mail-images', 'mail-images', true, 5242880, array['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Safe uuid parse so a malformed object path never raises inside a policy.
+create or replace function public.try_uuid(p text)
+returns uuid
+language plpgsql
+immutable
+as $$
+begin
+  return p::uuid;
+exception when others then
+  return null;
+end;
+$$;
+
+-- Path convention for both buckets: {organization_id}/{user_id}/{random}/{filename}
+drop policy if exists mail_attachments_select on storage.objects;
+create policy mail_attachments_select on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'mail-attachments'
+    and public.is_org_member(public.try_uuid(split_part(name, '/', 1)))
+    and (split_part(name, '/', 2) = auth.uid()::text
+         or public.has_view_all_role(public.try_uuid(split_part(name, '/', 1))))
+  );
+
+drop policy if exists mail_attachments_insert on storage.objects;
+create policy mail_attachments_insert on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id in ('mail-attachments', 'mail-images')
+    and split_part(name, '/', 2) = auth.uid()::text
+    and public.has_write_role(public.try_uuid(split_part(name, '/', 1)))
+  );
+
+drop policy if exists mail_attachments_delete on storage.objects;
+create policy mail_attachments_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id in ('mail-attachments', 'mail-images')
+    and split_part(name, '/', 2) = auth.uid()::text
+  );
+
+-- ===================== 0027_payments.sql =====================
+-- 0027_payments.sql
+-- Payment Management: payments recorded against approved quotations.
+--   Customer -> Approved quotation -> Payment entry -> Receipt -> Outstanding balance.
+--
+-- Rules enforced in the database (not only in the UI):
+--   * A payment can only be recorded against a quotation in status approved / sent / accepted.
+--   * Contact, company and owner are copied from the quotation (cannot be spoofed).
+--   * Outstanding = quotation.total_amount - sum(valid payments). Valid payments may not exceed
+--     the quotation amount unless an Owner/Admin records an explicit excess-adjustment reason.
+--   * Duplicate transaction references (same org, case-insensitive) are rejected.
+--   * Payments are never deleted: they are voided with a reason, and every insert/update is
+--     written to payment_audit (edit history).
+--   * Visibility follows quotations: the quotation owner, and Owner/Admin/Sales Manager
+--     (has_view_all_role). Writes: quotation owner (non-viewer) or Owner/Admin.
+-- Rollback: supabase/rollback/0027_rollback.sql
+
+-- 1. Enums --------------------------------------------------------------------------------
+do $$ begin
+  create type public.payment_mode as enum ('cash', 'upi', 'bank_transfer');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.payment_kind as enum ('advance', 'partial', 'full');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.payment_record_status as enum ('valid', 'void');
+exception when duplicate_object then null; end $$;
+
+-- 2. Receipt counters ---------------------------------------------------------------------
+create table if not exists public.org_counters (
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  counter_key text not null,
+  value bigint not null default 0,
+  primary key (organization_id, counter_key)
+);
+alter table public.org_counters enable row level security;
+-- No policies: only security-definer functions touch it.
+revoke all on public.org_counters from anon, authenticated;
+
+-- 3. Payments -----------------------------------------------------------------------------
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  quotation_id uuid not null references public.quotations (id) on delete restrict,
+  contact_id uuid references public.contacts (id) on delete set null,
+  company_id uuid references public.companies (id) on delete set null,
+  owner_user_id uuid references public.profiles (id) on delete set null,
+  receipt_number text not null,
+  amount numeric(14, 2) not null check (amount > 0 and amount <= 1000000000),
+  currency text not null default 'INR',
+  payment_kind public.payment_kind not null default 'partial',
+  payment_mode public.payment_mode not null,
+  reference text check (reference is null or length(reference) between 1 and 120),
+  payment_date date not null default current_date,
+  notes text check (notes is null or length(notes) <= 2000),
+  status public.payment_record_status not null default 'valid',
+  excess_reason text check (excess_reason is null or length(excess_reason) between 5 and 500),
+  excess_approved_by uuid references public.profiles (id) on delete set null,
+  void_reason text check (void_reason is null or length(void_reason) between 3 and 500),
+  voided_by uuid references public.profiles (id) on delete set null,
+  voided_at timestamptz,
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists payments_receipt_unique on public.payments (organization_id, receipt_number);
+create unique index if not exists payments_reference_unique on public.payments (organization_id, lower(btrim(reference)))
+  where status = 'valid' and reference is not null;
+create index if not exists payments_quotation_idx on public.payments (quotation_id, payment_date);
+create index if not exists payments_org_date_idx on public.payments (organization_id, payment_date desc);
+create index if not exists payments_contact_idx on public.payments (organization_id, contact_id);
+
+drop trigger if exists payments_updated_at on public.payments;
+create trigger payments_updated_at before update on public.payments
+  for each row execute function public.set_updated_at();
+
+-- 4. Audit history ------------------------------------------------------------------------
+create table if not exists public.payment_audit (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  payment_id uuid not null references public.payments (id) on delete cascade,
+  action text not null check (action in ('created', 'updated', 'voided')),
+  actor_user_id uuid references public.profiles (id) on delete set null,
+  changes jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists payment_audit_payment_idx on public.payment_audit (payment_id, created_at);
+
+-- 5. Validation trigger (security definer: needs every valid payment of the quotation to
+--    compute the balance, regardless of who recorded them; it never returns data).
+create or replace function public.payments_before_write()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  q record;
+  others numeric(14, 2);
+  -- NOTE: inside a SECURITY DEFINER function current_user is the function owner, so the
+  -- caller is identified from the request JWT instead. No JWT = direct DB/service access.
+  uid uuid := auth.uid();
+  is_service boolean := auth.uid() is null or coalesce(auth.role(), '') = 'service_role';
+  yr text;
+  seq bigint;
+begin
+  if tg_op = 'UPDATE' then
+    if new.organization_id is distinct from old.organization_id
+       or new.quotation_id is distinct from old.quotation_id
+       or new.receipt_number is distinct from old.receipt_number
+       or new.created_by is distinct from old.created_by
+       or new.created_at is distinct from old.created_at then
+      raise exception 'Organization, quotation and receipt number of a payment cannot be changed';
+    end if;
+    if old.status = 'void' then
+      raise exception 'A voided payment cannot be edited';
+    end if;
+  end if;
+
+  select id, organization_id, owner_user_id, contact_id, company_id, status, total_amount, currency
+    into q
+    from public.quotations
+   where id = new.quotation_id
+   for update;  -- serialises concurrent payments on the same quotation
+
+  if q.id is null or q.organization_id <> new.organization_id then
+    raise exception 'Quotation not found in this organization';
+  end if;
+  if q.status::text not in ('approved', 'sent', 'accepted') then
+    raise exception 'Payments can only be recorded against an approved quotation (current status: %)', q.status;
+  end if;
+  if coalesce(q.total_amount, 0) <= 0 then
+    raise exception 'The quotation has no amount';
+  end if;
+
+  -- Derived fields: always from the quotation.
+  new.contact_id := q.contact_id;
+  new.company_id := q.company_id;
+  new.owner_user_id := q.owner_user_id;
+  new.currency := coalesce(q.currency, 'INR');
+  new.reference := nullif(btrim(coalesce(new.reference, '')), '');
+  new.updated_by := coalesce(uid, new.updated_by);
+
+  if tg_op = 'INSERT' then
+    new.created_by := coalesce(uid, new.created_by);
+    new.status := 'valid';
+    new.voided_at := null; new.voided_by := null; new.void_reason := null;
+    yr := to_char(coalesce(new.payment_date, current_date), 'YYYY');
+    insert into public.org_counters (organization_id, counter_key, value)
+      values (new.organization_id, 'receipt-' || yr, 1)
+      on conflict (organization_id, counter_key) do update set value = public.org_counters.value + 1
+      returning value into seq;
+    new.receipt_number := 'RCPT-' || yr || '-' || lpad(seq::text, 4, '0');
+  end if;
+
+  -- Voiding
+  if tg_op = 'UPDATE' and new.status = 'void' and old.status = 'valid' then
+    if coalesce(btrim(new.void_reason), '') = '' then
+      raise exception 'A reason is required to void a payment';
+    end if;
+    new.voided_at := now();
+    new.voided_by := uid;
+    return new;
+  end if;
+
+  -- Balance check (only valid payments count). Lowering an amount or editing other fields of
+  -- an existing payment is always allowed; only new money is checked against the balance.
+  if tg_op = 'UPDATE' and new.amount <= old.amount then
+    if new.excess_reason is distinct from old.excess_reason and not is_service and not public.has_admin_role(new.organization_id) then
+      raise exception 'Only an Owner or Admin can change an excess adjustment';
+    end if;
+    return new;
+  end if;
+
+  select coalesce(sum(amount), 0) into others
+    from public.payments
+   where quotation_id = new.quotation_id and status = 'valid'
+     and id <> new.id;
+
+  if others + new.amount > q.total_amount then
+    if new.excess_reason is null then
+      raise exception 'Payment exceeds the outstanding balance (outstanding: %). An Owner/Admin must record an excess adjustment reason.',
+        greatest(q.total_amount - others, 0);
+    end if;
+    if not is_service and not public.has_admin_role(new.organization_id) then
+      raise exception 'Only an Owner or Admin can approve a payment above the quotation amount';
+    end if;
+    new.excess_approved_by := uid;
+  elsif tg_op = 'INSERT' or new.excess_reason is distinct from old.excess_reason then
+    -- No excess: clear any adjustment fields a client may have sent.
+    new.excess_reason := null;
+    new.excess_approved_by := null;
+  end if;
+
+  -- Kind: a single payment covering the whole amount is "full"; advance stays when chosen;
+  -- otherwise "partial".
+  if others = 0 and new.amount >= q.total_amount then
+    new.payment_kind := 'full';
+  elsif new.payment_kind = 'full' then
+    new.payment_kind := 'partial';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists payments_before_write on public.payments;
+create trigger payments_before_write
+  before insert or update on public.payments
+  for each row execute function public.payments_before_write();
+
+create or replace function public.payments_after_write()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  diff jsonb := '{}'::jsonb;
+  k text;
+  watched text[] := array['amount', 'payment_mode', 'payment_kind', 'reference', 'payment_date', 'notes', 'status', 'excess_reason', 'void_reason'];
+begin
+  if tg_op = 'INSERT' then
+    insert into public.payment_audit (organization_id, payment_id, action, actor_user_id, changes)
+    values (new.organization_id, new.id, 'created', coalesce(auth.uid(), new.created_by),
+            jsonb_build_object('amount', new.amount, 'payment_mode', new.payment_mode, 'payment_kind', new.payment_kind,
+                               'reference', new.reference, 'payment_date', new.payment_date, 'receipt_number', new.receipt_number));
+    return new;
+  end if;
+  foreach k in array watched loop
+    if (to_jsonb(new) -> k) is distinct from (to_jsonb(old) -> k) then
+      diff := diff || jsonb_build_object(k, jsonb_build_object('from', to_jsonb(old) -> k, 'to', to_jsonb(new) -> k));
+    end if;
+  end loop;
+  if diff <> '{}'::jsonb then
+    insert into public.payment_audit (organization_id, payment_id, action, actor_user_id, changes)
+    values (new.organization_id, new.id, case when new.status = 'void' and old.status = 'valid' then 'voided' else 'updated' end,
+            auth.uid(), diff);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists payments_after_write on public.payments;
+create trigger payments_after_write
+  after insert or update on public.payments
+  for each row execute function public.payments_after_write();
+
+revoke all on function public.payments_before_write() from public, anon, authenticated;
+revoke all on function public.payments_after_write() from public, anon, authenticated;
+
+-- 6. RLS ----------------------------------------------------------------------------------
+alter table public.payments enable row level security;
+alter table public.payment_audit enable row level security;
+
+create or replace function public.can_write_quotation_payments(p_quotation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.quotations q
+     where q.id = p_quotation
+       and public.has_write_role(q.organization_id)
+       and (q.owner_user_id = auth.uid() or public.has_admin_role(q.organization_id))
+  );
+$$;
+revoke all on function public.can_write_quotation_payments(uuid) from public, anon;
+grant execute on function public.can_write_quotation_payments(uuid) to authenticated, service_role;
+
+drop policy if exists payments_select on public.payments;
+create policy payments_select on public.payments
+  for select to authenticated
+  using (
+    public.is_org_member(organization_id)
+    and (owner_user_id = auth.uid() or created_by = auth.uid() or public.has_view_all_role(organization_id))
+  );
+
+drop policy if exists payments_insert on public.payments;
+create policy payments_insert on public.payments
+  for insert to authenticated
+  with check (public.is_org_member(organization_id) and public.can_write_quotation_payments(quotation_id));
+
+drop policy if exists payments_update on public.payments;
+create policy payments_update on public.payments
+  for update to authenticated
+  using (public.is_org_member(organization_id) and public.can_write_quotation_payments(quotation_id))
+  with check (public.is_org_member(organization_id) and public.can_write_quotation_payments(quotation_id));
+
+-- No delete policy: payments are voided, never deleted.
+grant select, insert, update on public.payments to authenticated;
+revoke delete on public.payments from authenticated;
+
+drop policy if exists payment_audit_select on public.payment_audit;
+create policy payment_audit_select on public.payment_audit
+  for select to authenticated
+  using (exists (select 1 from public.payments p where p.id = payment_audit.payment_id));  -- inherits payments RLS
+grant select on public.payment_audit to authenticated;
+revoke insert, update, delete on public.payment_audit from authenticated;
+
+-- 7. Summary view (security_invoker: callers only see quotations/payments RLS allows) ----
+create or replace view public.quotation_payment_summary
+with (security_invoker = true) as
+select
+  q.id as quotation_id,
+  q.organization_id,
+  q.owner_user_id,
+  q.contact_id,
+  q.company_id,
+  q.title,
+  q.status as quotation_status,
+  q.currency,
+  q.total_amount,
+  q.created_at,
+  q.approved_at,
+  coalesce(p.received, 0)::numeric(14, 2) as received_amount,
+  greatest(q.total_amount - coalesce(p.received, 0), 0)::numeric(14, 2) as outstanding_amount,
+  coalesce(p.payment_count, 0) as payment_count,
+  p.last_payment_date,
+  case
+    when coalesce(p.received, 0) <= 0 then 'pending'
+    when coalesce(p.received, 0) < q.total_amount then 'partial'
+    else 'paid'
+  end as payment_status
+from public.quotations q
+left join (
+  select quotation_id, sum(amount) as received, count(*) as payment_count, max(payment_date) as last_payment_date
+    from public.payments
+   where status = 'valid'
+   group by quotation_id
+) p on p.quotation_id = q.id
+where q.status::text in ('approved', 'sent', 'accepted');
+
+grant select on public.quotation_payment_summary to authenticated;
 

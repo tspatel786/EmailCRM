@@ -32,11 +32,11 @@ import {
   Wallet,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { Suspense, useEffect, useRef, useState, type RefObject } from "react";
 import { useSession } from "../lib/session";
 import { useTheme } from "../lib/theme";
 import { supabase } from "../lib/supabase";
-import { cn } from "./ui";
+import { cn, Spinner } from "./ui";
 import { canManageCampaigns } from "@crm/shared";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; managersOnly?: boolean };
@@ -504,7 +504,10 @@ export function AppShell() {
         </header>
 
         <main className="relative mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-          <Outlet />
+          {/* Pages are lazy-loaded (App.tsx); show a spinner while a page's code downloads. */}
+          <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><Spinner label="Loading…" /></div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

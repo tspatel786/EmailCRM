@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { ThreeBackground } from "../components/ThreeBackground";
+// three.js is ~600 KB: load the decorative background separately so the form appears first.
+const ThreeBackground = lazy(() => import("../components/ThreeBackground").then((m) => ({ default: m.ThreeBackground })));
 import { Globe, Phone, Mail, MapPin, ShieldCheck, ArrowRight, Eye, EyeOff, Lock, User, Sparkles } from "lucide-react";
 
 export function LoginPage() {
@@ -18,7 +19,7 @@ export function LoginPage() {
   return (
     <div className="relative min-h-screen bg-[#070b14] flex flex-col justify-between p-3 sm:p-5 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden overflow-y-auto">
       {/* Interactive 3D Animated Background (Three.js with colorful floating shapes & parallax) */}
-      <ThreeBackground />
+      <Suspense fallback={null}><ThreeBackground /></Suspense>
 
       {/* Subtle radial vignette overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1] bg-[radial-gradient(circle_at_center,transparent_20%,rgba(7,11,20,0.65)_100%)]" />

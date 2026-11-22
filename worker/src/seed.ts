@@ -30,6 +30,16 @@ async function upsertUser(email: string, fullName: string, passwordOverride?: st
 }
 
 async function main() {
+  // Seeding creates demo OWNER accounts with a published password and resets the password of
+  // sales@smpatelithub.in. It must never run against the hosted production project by accident
+  // (worker/.env points at production), so only local Supabase is allowed unless explicitly forced.
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|host\.docker\.internal)(:\d+)?(\/|$)/i.test(env.supabaseUrl);
+  if (!isLocal && process.env.ALLOW_REMOTE_SEED !== "yes-i-understand-this-resets-passwords") {
+    throw new Error(
+      `Refusing to seed ${env.supabaseUrl}: seeding is only allowed against a local Supabase (http://127.0.0.1:54321). ` +
+        "It would create demo owner accounts with a public password and reset real passwords.",
+    );
+  }
   if (env.serviceRoleKey.startsWith("replace-with")) {
     throw new Error("Set SUPABASE_SERVICE_ROLE_KEY before seeding");
   }
