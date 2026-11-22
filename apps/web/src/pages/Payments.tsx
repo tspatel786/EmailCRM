@@ -4,6 +4,7 @@ import { canAdmin, canWrite } from "@crm/shared";
 import { Ban, Download, FileDown, History, IndianRupee, Pencil, Plus, Wallet } from "lucide-react";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
+import { WhatsAppButton } from "../components/WhatsAppButton";
 import { fmtDate, fmtDateTime, money, todayIsoDate } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
 import { downloadInvoicePdf, invoiceNumberFor } from "../lib/invoicePdf";
@@ -442,6 +443,20 @@ export function PaymentsPage() {
                       <td>
                         <div className="flex justify-end gap-1">
                           <Button size="sm" variant="ghost" title="Download invoice PDF" onClick={() => void receipt(p)}><FileDown size={15} /></Button>
+                          {p.contact_id && p.status === "valid" ? (
+                            <WhatsAppButton
+                              contactId={p.contact_id}
+                              phone={p.contacts?.primary_phone}
+                              defaultTemplate="thanks"
+                              context={{
+                                name: p.contacts?.full_name,
+                                quotationTitle: p.quotations?.title,
+                                amountPaid: money(p.amount, p.currency),
+                                invoiceNumber: invoiceNumberFor(p.receipt_number),
+                                outstanding: (() => { const s = summaryByQuote.get(p.quotation_id); return s && s.outstanding_amount > 0 ? money(s.outstanding_amount, s.currency) : null; })(),
+                              }}
+                            />
+                          ) : null}
                           <Button size="sm" variant="ghost" title="Edit history" onClick={() => setHistoryFor(p)}><History size={15} /></Button>
                           {p.status === "valid" && canEdit(p) ? (
                             <>
@@ -482,6 +497,13 @@ export function PaymentsPage() {
                     <td>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setQuoteDetail(s)}>History</Button>
+                        {s.contact_id && s.outstanding_amount > 0 ? (
+                          <WhatsAppButton
+                            contactId={s.contact_id}
+                            defaultTemplate="reminder"
+                            context={{ quotationTitle: s.title, outstanding: money(s.outstanding_amount, s.currency) }}
+                          />
+                        ) : null}
                         {writable && s.outstanding_amount > 0 && canEdit(s) ? (
                           <Button size="sm" variant="secondary" onClick={() => { setNewForQuotation(s.quotation_id); setEditing("new"); }}><Plus size={14} /> Pay</Button>
                         ) : null}

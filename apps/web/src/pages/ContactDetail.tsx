@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { canAdmin, canWrite } from "@crm/shared";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
+import { WhatsAppButton } from "../components/WhatsAppButton";
 import { fmtDateTime, telHref } from "../lib/format";
 import { Badge, Button, Card, Confirm, Empty, Field, Input, PageHeader, Select, Spinner, TableSkeleton, TableWrap, Textarea } from "../components/ui";
 import { MemberSelect } from "./Companies";
@@ -299,6 +300,7 @@ export function ContactDetailPage() {
                 "—"
               )}
             </p>
+            <WhatsAppButton variant="button" contactId={c.id} phone={c.primary_phone} context={{ name: c.full_name, company: c.company_name }} />
             <p className="text-xs text-slate-500 dark:text-ink-400">
               Click-to-call opens the device dialer. It does not log duration or record the conversation. Log the call manually after you hang up.
             </p>

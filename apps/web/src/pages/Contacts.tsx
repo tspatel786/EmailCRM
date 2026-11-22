@@ -7,6 +7,7 @@ import { canAdmin, canWrite, contactFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
+import { WhatsAppButton } from "../components/WhatsAppButton";
 import { downloadWorkbook } from "../lib/export";
 import { fmtDate, telHref } from "../lib/format";
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, Toolbar, SearchInput, TableSkeleton, TableWrap } from "../components/ui";
@@ -213,6 +214,7 @@ export function ContactsPage() {
                     ) : (
                       c.primary_phone
                     )}
+                    <WhatsAppButton contactId={c.id} phone={c.primary_phone} context={{ name: c.full_name, company: c.company_name }} defaultTemplate="intro" className="ml-1 align-middle" />
                   </td>
                   <td>
                     <Badge>{c.lead_status}</Badge>

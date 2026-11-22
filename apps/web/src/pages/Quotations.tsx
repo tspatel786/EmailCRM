@@ -7,6 +7,7 @@ import { canAdmin, canWrite, quotationFormSchema } from "@crm/shared";
 import type { z } from "zod";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
+import { WhatsAppButton } from "../components/WhatsAppButton";
 import { money, fmtDateTime } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
 import { downloadQuotationPdf } from "../lib/quotationPdf";
@@ -433,6 +434,9 @@ export function QuotationsPage() {
                     <Button variant="ghost" title="Download quotation on letterhead" disabled={pdfBusy === q.id} onClick={() => void printPdf(q)}>
                       {pdfBusy === q.id ? "Creating…" : "PDF"}
                     </Button>
+                    {q.contact_id ? (
+                      <WhatsAppButton contactId={q.contact_id} defaultTemplate="quotation" context={{ quotationTitle: q.title, quotationAmount: money(Number(q.total_amount), q.currency) }} className="align-middle" />
+                    ) : null}
                     <Button variant="ghost" onClick={() => setVersionModalQuote(q)}>
                       History
                     </Button>
