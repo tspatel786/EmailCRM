@@ -29,7 +29,7 @@ Nothing in quotations, deals or the email system was changed.
 - Multiple payments per quotation; outstanding updates immediately
 - Edit payment with full **audit history** (who changed what, from → to, when)
 - Void payment with a reason (payments are never deleted); voided payments stay visible but do not count
-- **Payment receipt PDF** (A4) with receipt number, customer, quotation, amount, mode, reference, paid to date and outstanding balance; voided receipts are watermarked VOID; offered automatically after saving
+- **Payment invoice PDF** (A4, on the company letterhead, no GST): one invoice per payment, number `INV-YYYY-NNNN` (derived 1:1 from the permanent receipt number), bill-to, the quotation's items, total, paid earlier, this payment, paid to date, balance due, amount in words, payment details, FULLY PAID stamp when settled, VOID watermark when voided; offered automatically after saving
 - Over-payment protection: amounts above the outstanding balance are rejected; an Owner/Admin can accept an excess only by entering an **excess adjustment reason**, which is recorded with the approver
 - Excel export of both views
 

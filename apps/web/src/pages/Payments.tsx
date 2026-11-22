@@ -6,7 +6,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { fmtDate, fmtDateTime, money, todayIsoDate } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
-import { downloadReceiptPdf } from "../lib/receipt";
+import { downloadInvoicePdf, invoiceNumberFor } from "../lib/invoicePdf";
 import {
   Badge,
   Button,
@@ -200,7 +200,7 @@ export function PaymentsPage() {
       if (from && p.payment_date < from) return false;
       if (to && p.payment_date > to) return false;
       if (!q) return true;
-      return [p.receipt_number, p.reference, p.contacts?.full_name, p.companies?.name, p.quotations?.title, p.notes]
+      return [p.receipt_number, invoiceNumberFor(p.receipt_number), p.reference, p.contacts?.full_name, p.companies?.name, p.quotations?.title, p.notes]
         .some((v) => v?.toLowerCase().includes(q));
     });
   }, [rows, search, status, mode, customer, quotation, from, to]);
@@ -230,39 +230,58 @@ export function PaymentsPage() {
 
   const canEdit = (p: { owner_user_id: string | null }) => writable && (admin || p.owner_user_id === user?.id);
 
+  // One invoice per payment, on the company letterhead (replaces the plain receipt).
   const receipt = async (p: PaymentRow) => {
     setPdfError("");
     try {
-      // Paid-to-date as of this receipt: valid payments up to and including this one.
-      const same = rows
+      // Paid to date as of this payment: valid payments up to and including this one.
+      const upTo = rows
         .filter((r) => r.quotation_id === p.quotation_id && r.status === "valid")
         .filter((r) => r.payment_date < p.payment_date || (r.payment_date === p.payment_date && r.created_at <= p.created_at));
-      const paid = same.reduce((s, r) => s + r.amount, 0);
+      const paidToDate = upTo.reduce((s, r) => s + r.amount, 0);
+      const previouslyPaid = paidToDate - (p.status === "valid" ? p.amount : 0);
       const total = Number(p.quotations?.total_amount ?? summaryByQuote.get(p.quotation_id)?.total_amount ?? 0);
       const contact = p.contact_id ? names.data?.contacts.get(p.contact_id) : null;
-      await downloadReceiptPdf({
-        orgName: org?.organizations?.name || "S.M.PATEL IT HUB",
-        receiptNumber: p.receipt_number,
-        paymentDate: fmtDate(p.payment_date),
-        customerName: p.contacts?.full_name || contact?.full_name || p.companies?.name || "Customer",
-        companyName: p.companies?.name,
-        customerEmail: p.contacts?.primary_email ?? (contact?.primary_email as string | undefined),
-        customerPhone: p.contacts?.primary_phone ?? (contact?.primary_phone as string | undefined),
+      const [ver, me, city] = await Promise.all([
+        supabase.from("quotation_versions").select("line_items, created_at, version_number")
+          .eq("quotation_id", p.quotation_id).order("version_number", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("profiles").select("full_name").eq("id", user!.id).maybeSingle(),
+        p.contact_id ? supabase.from("contacts").select("city").eq("id", p.contact_id).maybeSingle() : Promise.resolve({ data: null }),
+      ]);
+      const v = ver.data as { line_items: { description: string; quantity: number; unit_price: number }[] | null; created_at: string; version_number: number } | null;
+      const issued = new Date(v?.created_at ?? p.created_at);
+      const version = v?.version_number ?? 1;
+      await downloadInvoicePdf({
+        invoiceNumber: invoiceNumberFor(p.receipt_number),
+        invoiceDate: fmtDate(p.payment_date),
+        // Same format as the quotation PDF so the two documents match.
+        quotationNumber: `QT-${issued.getFullYear()}-${p.quotation_id.slice(0, 6).toUpperCase()}${version > 1 ? `-R${version}` : ""}`,
         quotationTitle: p.quotations?.title || summaryByQuote.get(p.quotation_id)?.title || "Quotation",
+        currency: p.currency || "INR",
+        items: (v?.line_items ?? []).map((it) => ({ description: it.description, quantity: Number(it.quantity), unit_price: Number(it.unit_price) })),
         quotationTotal: total,
+        previouslyPaid,
         amount: p.amount,
-        paidToDate: paid,
-        outstanding: Math.max(total - paid, 0),
+        paidToDate,
+        balanceDue: Math.max(total - paidToDate, 0),
         mode: p.payment_mode,
         kind: p.payment_kind,
         reference: p.reference,
         notes: p.notes,
-        currency: p.currency || "INR",
+        customer: {
+          name: p.contacts?.full_name || (contact?.full_name as string | undefined) || null,
+          company: p.companies?.name,
+          email: p.contacts?.primary_email ?? (contact?.primary_email as string | undefined),
+          phone: p.contacts?.primary_phone ?? (contact?.primary_phone as string | undefined),
+          city: (city.data as { city?: string | null } | null)?.city ?? null,
+        },
+        orgName: "S.M. PATEL IT HUB",
+        preparedBy: (me.data as { full_name?: string } | null)?.full_name || null,
         isVoid: p.status === "void",
         voidReason: p.void_reason,
       });
     } catch (e) {
-      setPdfError(`Could not create the receipt: ${errText(e)}`);
+      setPdfError(`Could not create the invoice: ${errText(e)}`);
     }
   };
 
@@ -271,7 +290,7 @@ export function PaymentsPage() {
       downloadWorkbook(
         `payments-${todayIsoDate()}.xlsx`,
         filtered.map((p) => ({
-          "Receipt No": p.receipt_number,
+          "Invoice No": invoiceNumberFor(p.receipt_number),
           "Payment Date": p.payment_date,
           Customer: p.contacts?.full_name || p.companies?.name || "",
           Company: p.companies?.name || "",
@@ -311,7 +330,7 @@ export function PaymentsPage() {
     <div>
       <PageHeader
         title="Payments"
-        subtitle="Payments received against approved quotations, with receipts and outstanding balances."
+        subtitle="Payments received against approved quotations, with invoices on the company letterhead and outstanding balances."
         icon={<Wallet size={20} />}
         actions={
           <>
@@ -345,7 +364,7 @@ export function PaymentsPage() {
 
       <Toolbar>
         <div className="min-w-0 flex-1 sm:min-w-[220px]">
-          <SearchInput placeholder={tab === "payments" ? "Search receipt, reference, customer…" : "Search quotation or customer…"} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <SearchInput placeholder={tab === "payments" ? "Search invoice no., reference, customer…" : "Search quotation or customer…"} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select aria-label="Customer" value={customer} onChange={(e) => setCustomer(e.target.value)} className="sm:w-48">
           <option value="">All customers</option>
@@ -399,13 +418,13 @@ export function PaymentsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr>
-                    <th>Receipt</th><th>Date</th><th>Customer</th><th>Quotation</th><th>Type</th><th>Mode</th><th>Reference</th><th className="text-right">Amount</th><th>Status</th><th className="text-right">Actions</th>
+                    <th>Invoice</th><th>Date</th><th>Customer</th><th>Quotation</th><th>Type</th><th>Mode</th><th>Reference</th><th className="text-right">Amount</th><th>Status</th><th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p) => (
                     <tr key={p.id} className={p.status === "void" ? "opacity-60" : ""}>
-                      <td className="whitespace-nowrap font-medium">{p.receipt_number}</td>
+                      <td className="whitespace-nowrap font-medium">{invoiceNumberFor(p.receipt_number)}</td>
                       <td className="whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                       <td className="max-w-[180px] truncate">{p.contacts?.full_name || p.companies?.name || "—"}</td>
                       <td className="max-w-[200px] truncate">
@@ -421,7 +440,7 @@ export function PaymentsPage() {
                       <td>{p.status === "void" ? <Badge tone="rose">Void</Badge> : <Badge tone="green">Valid</Badge>}</td>
                       <td>
                         <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="ghost" title="Download receipt PDF" onClick={() => void receipt(p)}><FileDown size={15} /></Button>
+                          <Button size="sm" variant="ghost" title="Download invoice PDF" onClick={() => void receipt(p)}><FileDown size={15} /></Button>
                           <Button size="sm" variant="ghost" title="Edit history" onClick={() => setHistoryFor(p)}><History size={15} /></Button>
                           {p.status === "valid" && canEdit(p) ? (
                             <>
@@ -519,18 +538,18 @@ export function PaymentsPage() {
             <p className="text-sm text-ink-600 dark:text-ink-300">Customer: <b>{customerName(quoteDetail.contact_id, quoteDetail.company_id)}</b></p>
             <div className="table-scroll">
               <table className="w-full text-sm">
-                <thead><tr><th>Receipt</th><th>Date</th><th>Type</th><th>Mode</th><th>Reference</th><th className="text-right">Amount</th><th>Status</th><th /></tr></thead>
+                <thead><tr><th>Invoice</th><th>Date</th><th>Type</th><th>Mode</th><th>Reference</th><th className="text-right">Amount</th><th>Status</th><th /></tr></thead>
                 <tbody>
                   {rows.filter((p) => p.quotation_id === quoteDetail.quotation_id).map((p) => (
                     <tr key={p.id} className={p.status === "void" ? "opacity-60" : ""}>
-                      <td>{p.receipt_number}</td>
+                      <td>{invoiceNumberFor(p.receipt_number)}</td>
                       <td className="whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                       <td>{KIND_LABEL[p.payment_kind]}</td>
                       <td>{MODE_LABEL[p.payment_mode]}</td>
                       <td>{p.reference || "—"}</td>
                       <td className="text-right tabular-nums">{money(p.amount, p.currency)}</td>
                       <td>{p.status === "void" ? <Badge tone="rose">Void</Badge> : <Badge tone="green">Valid</Badge>}</td>
-                      <td><Button size="sm" variant="ghost" title="Receipt PDF" onClick={() => void receipt(p)}><FileDown size={14} /></Button></td>
+                      <td><Button size="sm" variant="ghost" title="Invoice PDF" onClick={() => void receipt(p)}><FileDown size={14} /></Button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -633,7 +652,7 @@ function PaymentForm({
   });
 
   return (
-    <Modal size="lg" open title={editing ? `Edit payment ${payment!.receipt_number}` : "Add payment"} onClose={onClose}>
+    <Modal size="lg" open title={editing ? `Edit payment ${invoiceNumberFor(payment!.receipt_number)}` : "Add payment"} onClose={onClose}>
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
         <Field label="Approved quotation" required>
           <Select value={quotationId} disabled={editing} onChange={(e) => {
@@ -704,7 +723,7 @@ function PaymentForm({
         {!editing ? (
           <label className="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-300">
             <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={downloadReceipt} onChange={(e) => setDownloadReceipt(e.target.checked)} />
-            Download the receipt PDF after saving
+            Download the invoice PDF after saving
           </label>
         ) : null}
 
@@ -721,7 +740,7 @@ function PaymentForm({
 
 const FIELD_LABEL: Record<string, string> = {
   amount: "Amount", payment_mode: "Mode", payment_kind: "Type", reference: "Reference", payment_date: "Date",
-  notes: "Notes", status: "Status", excess_reason: "Excess reason", void_reason: "Void reason", receipt_number: "Receipt",
+  notes: "Notes", status: "Status", excess_reason: "Excess reason", void_reason: "Void reason", receipt_number: "Invoice",
 };
 
 function AuditModal({ payment, onClose }: { payment: PaymentRow | null; onClose: () => void }) {
@@ -743,7 +762,7 @@ function AuditModal({ payment, onClose }: { payment: PaymentRow | null; onClose:
   });
   const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
   return (
-    <Modal size="lg" open={Boolean(payment)} title={payment ? `History · ${payment.receipt_number}` : ""} onClose={onClose}>
+    <Modal size="lg" open={Boolean(payment)} title={payment ? `History · ${invoiceNumberFor(payment.receipt_number)}` : ""} onClose={onClose}>
       {audit.isLoading ? (
         <TableSkeleton rows={3} />
       ) : audit.error ? (
@@ -791,7 +810,7 @@ function VoidModal({ payment, onClose, onDone }: { payment: PaymentRow | null; o
     onError: (e) => setError(errText(e)),
   });
   return (
-    <Modal size="sm" open={Boolean(payment)} title={payment ? `Void ${payment.receipt_number}?` : ""} onClose={onClose}>
+    <Modal size="sm" open={Boolean(payment)} title={payment ? `Void ${invoiceNumberFor(payment.receipt_number)}?` : ""} onClose={onClose}>
       <div className="space-y-3">
         <p className="text-sm text-ink-600 dark:text-ink-300">
           The payment of <b>{payment ? money(payment.amount, payment.currency) : ""}</b> stays in the history but no longer counts towards the quotation. This cannot be undone.

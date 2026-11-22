@@ -4,6 +4,7 @@ import { Download, Wallet } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { fmtDate, money } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
+import { invoiceNumberFor } from "../lib/invoicePdf";
 import { Badge, Button, Card, CardHeader, Empty, ErrorBox, Select, TableSkeleton } from "./ui";
 import { KIND_LABEL, MODE_LABEL, STATUS_TONE, normalizePayment, normalizeSummary } from "../pages/Payments";
 
@@ -119,7 +120,7 @@ export function PaymentReports({ orgId, from, to }: { orgId: string; from: strin
       report === "date" && d
         ? d.payments.map((p) => ({
             Date: p.payment_date,
-            Receipt: p.receipt_number,
+            "Invoice No": invoiceNumberFor(p.receipt_number),
             Customer: p.contacts?.full_name || p.companies?.name || "",
             Quotation: p.quotations?.title || "",
             Type: KIND_LABEL[p.payment_kind],

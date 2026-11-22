@@ -25,13 +25,13 @@ export type QuotationPdfData = {
   orgName: string;
 };
 
-const HEADER_SRC = "/letterhead/header.jpg";
-const FOOTER_SRC = "/letterhead/footer.jpg";
+export const HEADER_SRC = "/letterhead/header.jpg";
+export const FOOTER_SRC = "/letterhead/footer.jpg";
 // Pixel sizes of the letterhead images (2110 x 503 and 2110 x 293).
-const HEADER_RATIO = 503 / 2110;
-const FOOTER_RATIO = 293 / 2110;
+export const HEADER_RATIO = 503 / 2110;
+export const FOOTER_RATIO = 293 / 2110;
 
-async function toDataUrl(src: string): Promise<string> {
+export async function toDataUrl(src: string): Promise<string> {
   const res = await fetch(src);
   if (!res.ok) throw new Error(`Letterhead image missing (${src})`);
   const blob = await res.blob();
@@ -43,7 +43,7 @@ async function toDataUrl(src: string): Promise<string> {
   });
 }
 
-function htmlToPlain(html: string): string {
+export function htmlToPlain(html: string): string {
   const el = document.createElement("div");
   el.innerHTML = html
     .replace(/<br\s*\/?>/gi, "\n")
@@ -83,7 +83,7 @@ export function amountInWords(amount: number, currency = "INR"): string {
   return `${words}${paise ? ` and ${twoDigits(paise)} Paise` : ""} Only`;
 }
 
-function amt(n: number, currency: string): string {
+export function amt(n: number, currency: string): string {
   const prefix = currency === "INR" ? "Rs." : currency;
   return `${prefix} ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
