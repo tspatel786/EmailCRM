@@ -2,7 +2,7 @@
 // plain receipt). No GST. Shows the quotation's items, the payment received, everything paid so
 // far and the balance due. Number: INV-YYYY-NNNN, derived 1:1 from the payment's permanent
 // receipt number, so it never changes and never repeats.
-import { FOOTER_RATIO, FOOTER_SRC, HEADER_RATIO, HEADER_SRC, amountInWords, amt, toDataUrl, type QuotationPdfItem } from "./quotationPdf";
+import { FOOTER_RATIO, FOOTER_SRC, HEADER_RATIO, HEADER_SRC, amountInWords, amt, drawSignature, loadSignature, toDataUrl, type QuotationPdfItem } from "./quotationPdf";
 
 export type InvoicePdfData = {
   invoiceNumber: string;
@@ -22,6 +22,7 @@ export type InvoicePdfData = {
   notes?: string | null;
   customer: { name?: string | null; company?: string | null; email?: string | null; phone?: string | null; city?: string | null };
   orgName: string;
+  organizationId?: string | null;
   preparedBy?: string | null;
   isVoid?: boolean;
   voidReason?: string | null;
@@ -35,7 +36,7 @@ export function invoiceNumberFor(receiptNumber: string): string {
 }
 
 export async function downloadInvoicePdf(d: InvoicePdfData): Promise<void> {
-  const [{ jsPDF }, header, footer] = await Promise.all([import("jspdf"), toDataUrl(HEADER_SRC), toDataUrl(FOOTER_SRC)]);
+  const [{ jsPDF }, header, footer, signature] = await Promise.all([import("jspdf"), toDataUrl(HEADER_SRC), toDataUrl(FOOTER_SRC), loadSignature(d.organizationId)]);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -241,12 +242,14 @@ export async function downloadInvoicePdf(d: InvoicePdfData): Promise<void> {
 
   // Signature
   ensure(30);
-  y += 4;
+  y += 1;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   ink();
   doc.text(`For ${d.orgName}`, W - M, y, { align: "right" });
-  y += 18;
+  y += 20;
+  // A voided invoice is not signed.
+  if (!d.isVoid) drawSignature(doc, signature, W - M, y);
   doc.setDrawColor(148, 163, 184);
   doc.line(W - M - 55, y, W - M, y);
   y += 5;

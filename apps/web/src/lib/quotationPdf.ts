@@ -1,6 +1,7 @@
 // Quotation PDF on the S.M. PATEL IT HUB letterhead (header + footer images from the
 // company's Word letterhead, repeated on every page). Generated in the browser; jsPDF is
 // loaded on demand. Built-in PDF fonts have no ₹ glyph, so amounts use "Rs.".
+import { supabase } from "./supabase";
 
 export type QuotationPdfItem = { description: string; quantity: number; unit_price: number };
 
@@ -23,13 +24,46 @@ export type QuotationPdfData = {
   };
   preparedBy?: string | null;
   orgName: string;
+  organizationId?: string | null;
 };
 
 export const HEADER_SRC = "/letterhead/header.jpg";
 export const FOOTER_SRC = "/letterhead/footer.jpg";
+// Signature image is 83 x 55 px (transparent PNG).
+export const SIGNATURE_RATIO = 55 / 83;
 // Pixel sizes of the letterhead images (2110 x 503 and 2110 x 293).
 export const HEADER_RATIO = 503 / 2110;
 export const FOOTER_RATIO = 293 / 2110;
+
+/** Draws the authorised signature so its baseline sits just above the signatory line at lineY. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function drawSignature(doc: any, signature: string | null, rightX: number, lineY: number) {
+  if (!signature) return;
+  const w = 27;
+  const h = w * SIGNATURE_RATIO;
+  doc.addImage(signature, "PNG", rightX - 55 + (55 - w) / 2, lineY - h - 0.5, w, h, "auth-signature", "FAST");
+}
+
+/**
+ * Loads the authorised signature from PRIVATE storage (org-documents/{org}/branding/signature.png),
+ * readable only by signed-in members of the organization; it is never a public URL.
+ * A missing file must never block a document, so it falls back to no signature.
+ */
+export async function loadSignature(organizationId?: string | null): Promise<string | null> {
+  if (!organizationId) return null;
+  try {
+    const { data, error } = await supabase.storage.from("org-documents").download(`${organizationId}/branding/signature.png`);
+    if (error || !data) return null;
+    return await new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(data);
+    });
+  } catch {
+    return null;
+  }
+}
 
 export async function toDataUrl(src: string): Promise<string> {
   const res = await fetch(src);
@@ -89,7 +123,7 @@ export function amt(n: number, currency: string): string {
 }
 
 export async function downloadQuotationPdf(d: QuotationPdfData): Promise<void> {
-  const [{ jsPDF }, header, footer] = await Promise.all([import("jspdf"), toDataUrl(HEADER_SRC), toDataUrl(FOOTER_SRC)]);
+  const [{ jsPDF }, header, footer, signature] = await Promise.all([import("jspdf"), toDataUrl(HEADER_SRC), toDataUrl(FOOTER_SRC), loadSignature(d.organizationId)]);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -261,7 +295,8 @@ export async function downloadQuotationPdf(d: QuotationPdfData): Promise<void> {
   doc.setFontSize(10);
   ink();
   doc.text(`For ${d.orgName}`, W - M, y, { align: "right" });
-  y += 18;
+  y += 20;
+  drawSignature(doc, signature, W - M, y);
   doc.setDrawColor(148, 163, 184);
   doc.line(W - M - 55, y, W - M, y);
   y += 5;

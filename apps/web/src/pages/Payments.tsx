@@ -276,6 +276,7 @@ export function PaymentsPage() {
           city: (city.data as { city?: string | null } | null)?.city ?? null,
         },
         orgName: "S.M. PATEL IT HUB",
+        organizationId: org?.organization_id,
         preparedBy: (me.data as { full_name?: string } | null)?.full_name || null,
         isVoid: p.status === "void",
         voidReason: p.void_reason,

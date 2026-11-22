@@ -291,6 +291,7 @@ export function QuotationsPage() {
         },
         preparedBy: (me.data as { full_name?: string } | null)?.full_name || null,
         orgName: "S.M. PATEL IT HUB",
+        organizationId: org?.organization_id,
       });
     } catch (e) {
       setPdfError(`Could not create the quotation PDF: ${e instanceof Error ? e.message : String(e)}`);
