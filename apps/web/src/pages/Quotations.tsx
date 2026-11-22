@@ -9,6 +9,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { money, fmtDateTime } from "../lib/format";
 import { downloadWorkbook } from "../lib/export";
+import { downloadQuotationPdf } from "../lib/quotationPdf";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea, Toolbar, SearchInput } from "../components/ui";
 import { Receipt as ReceiptIcon } from "lucide-react";
 import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
@@ -247,36 +248,55 @@ export function QuotationsPage() {
     },
   });
 
-  const printPdf = (q: QuotationRow) => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(`
-      <html>
-        <head>
-          <title>${q.title} - Quotation</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; }
-            h1 { font-size: 24px; margin-bottom: 8px; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 24px; }
-            .meta { color: #64748b; font-size: 14px; }
-            .total { font-size: 18px; font-weight: bold; margin-top: 24px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${q.title}</h1>
-            <p class="meta">Version ${q.current_version} · Status: ${q.status} · Date: ${fmtDateTime(q.created_at)}</p>
-          </div>
-          <div class="total">
-            Total Quotation Amount: ${money(Number(q.total_amount), q.currency)}
-          </div>
-          <p style="margin-top: 32px; font-size: 12px; color: #94a3b8;">Printed from IT Services CRM</p>
-        </body>
-      </html>
-    `);
-    w.document.close();
-    w.focus();
-    w.print();
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState("");
+
+  // Quotation PDF on the company letterhead, using the latest version's line items and notes.
+  const printPdf = async (q: QuotationRow) => {
+    setPdfBusy(q.id);
+    setPdfError("");
+    try {
+      const [ver, contact, company, me] = await Promise.all([
+        supabase.from("quotation_versions").select("line_items, total_amount, body_html, created_at, version_number")
+          .eq("quotation_id", q.id).order("version_number", { ascending: false }).limit(1).maybeSingle(),
+        q.contact_id ? supabase.from("contacts").select("full_name, primary_email, primary_phone, city, company_name").eq("id", q.contact_id).maybeSingle() : Promise.resolve({ data: null }),
+        q.company_id ? supabase.from("companies").select("name, city").eq("id", q.company_id).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from("profiles").select("full_name").eq("id", user!.id).maybeSingle(),
+      ]);
+      if (ver.error) throw ver.error;
+      const v = ver.data as { line_items: LineItem[] | null; total_amount: number; body_html: string; created_at: string; version_number: number } | null;
+      const c = contact.data as { full_name: string; primary_email: string | null; primary_phone: string | null; city: string | null; company_name: string | null } | null;
+      const co = company.data as { name: string; city: string | null } | null;
+      const issued = new Date(v?.created_at ?? q.created_at);
+      const valid = new Date(issued);
+      valid.setDate(valid.getDate() + 30);
+      const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const version = v?.version_number ?? q.current_version ?? 1;
+      await downloadQuotationPdf({
+        quotationNumber: `QT-${issued.getFullYear()}-${q.id.slice(0, 6).toUpperCase()}${version > 1 ? `-R${version}` : ""}`,
+        title: q.title,
+        date: fmt(issued),
+        validUntil: fmt(valid),
+        version,
+        currency: q.currency || "INR",
+        items: (v?.line_items ?? []).map((it) => ({ description: it.description, quantity: Number(it.quantity), unit_price: Number(it.unit_price) })),
+        total: Number(v?.total_amount ?? q.total_amount),
+        notesHtml: v?.body_html ?? null,
+        customer: {
+          name: c?.full_name,
+          company: co?.name ?? c?.company_name,
+          email: c?.primary_email,
+          phone: c?.primary_phone,
+          city: c?.city ?? co?.city,
+        },
+        preparedBy: (me.data as { full_name?: string } | null)?.full_name || null,
+        orgName: "S.M. PATEL IT HUB",
+      });
+    } catch (e) {
+      setPdfError(`Could not create the quotation PDF: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPdfBusy(null);
+    }
   };
 
   const openNewVersionDialog = async (q: QuotationRow) => {
@@ -366,6 +386,7 @@ export function QuotationsPage() {
         }
       />
 
+      {pdfError ? <div className="mb-3"><ErrorBox message={pdfError} /></div> : null}
       <Toolbar>
         <SearchInput
           placeholder="Search quotations by title..."
@@ -408,8 +429,8 @@ export function QuotationsPage() {
                   <td>{money(Number(q.total_amount), q.currency)}</td>
                   <td>v{q.current_version}</td>
                   <td className="space-x-1.5">
-                    <Button variant="ghost" onClick={() => printPdf(q)}>
-                      PDF
+                    <Button variant="ghost" title="Download quotation on letterhead" disabled={pdfBusy === q.id} onClick={() => void printPdf(q)}>
+                      {pdfBusy === q.id ? "Creating…" : "PDF"}
                     </Button>
                     <Button variant="ghost" onClick={() => setVersionModalQuote(q)}>
                       History
