@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { INDUSTRIES, guessColumnMapping, normalizeCompanyRow, scoreLead, suggestOpportunities, LEAD_IMPORT_FIELDS, type LeadImportField } from "@crm/shared";
+import { INDUSTRIES, websiteFromEmail, guessColumnMapping, normalizeCompanyRow, scoreLead, suggestOpportunities, LEAD_IMPORT_FIELDS, type LeadImportField } from "@crm/shared";
 import { CheckCircle2, Database, Download, FileUp, Globe, Radar, RefreshCw, Search, Upload } from "lucide-react";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -8,6 +8,7 @@ import { fmtDate, fmtDateTime, todayIsoDate } from "../lib/format";
 import { downloadMultiSheetWorkbook, downloadWorkbook, parseCsv, parseWorkbook } from "../lib/export";
 import { isMissingTableError, saveLeadToCrm, type LeadCompany } from "../lib/leadCrm";
 import { CompanyDrawer } from "../components/leads/CompanyDrawer";
+import { LeadCharts } from "../components/leads/LeadCharts";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, PageHeader, Select, StatCard, TableSkeleton, Toolbar, type BadgeTone } from "../components/ui";
 import { canAdmin, canWrite } from "@crm/shared";
 
@@ -88,6 +89,7 @@ export function LeadFinderPage() {
           </button>
         ))}
       </div>
+      {tab === "companies" ? <LeadCharts orgId={org.organization_id} /> : null}
       {tab === "companies" ? <Companies onImport={() => setTab("import")} /> : tab === "import" ? <ImportTab onDone={() => setTab("companies")} /> : <SourcesTab />}
     </div>
   );
@@ -394,25 +396,37 @@ function ImportTab({ onDone }: { onDone: () => void }) {
     const toInsert: Record<string, unknown>[] = [];
     let skippedOld = 0;
     const seen = new Set<string>();
+    const emailsByCin = new Map<string, string>();
     normalized.forEach((n, i) => {
       if (!n.ok) return rejected.push({ row: i + 2, error: n.error, data: rawRows[i]! });
       if (recentOnly && n.value.registration_date && n.value.registration_date < cutoff) { skippedOld++; return; }
       if (seen.has(n.value.cin)) return rejected.push({ row: i + 2, error: "Duplicate CIN inside the file", data: rawRows[i]! });
       seen.add(n.value.cin);
       const s = scoreLead({ registrationDate: n.value.registration_date, hasWebsite: false, hasBusinessEmail: false, hasBusinessPhone: false, industry: n.value.industry });
-      toInsert.push({ ...n.value, organization_id: orgId, source_key: "mca_excel", source_url: "https://www.mca.gov.in/content/mca/global/en/data-and-reports/company-llp-info/incorporated-closed-month.html",
+      const { registered_email, ...company } = n.value;
+      const siteGuess = websiteFromEmail(registered_email);
+      if (registered_email) emailsByCin.set(company.cin, registered_email);
+      toInsert.push({ ...company, website: siteGuess ? `https://${siteGuess}` : null, website_status: siteGuess ? "suggested" : "none", organization_id: orgId, source_key: "mca_excel", source_url: "https://www.mca.gov.in/content/mca/global/en/data-and-reports/company-llp-info/incorporated-closed-month.html",
         import_job_id: job.data.id, lead_score: s.score, score_reasons: s.reasons, opportunities: suggestOpportunities(n.value.industry, false) });
     });
     let inserted = 0;
     for (let i = 0; i < toInsert.length; i += 500) {
       setProgress(`Importing ${Math.min(i + 500, toInsert.length)} of ${toInsert.length}…`);
       const batch = toInsert.slice(i, i + 500);
-      const { data, error: e } = await supabase.from("discovered_companies").upsert(batch, { onConflict: "organization_id,cin", ignoreDuplicates: true }).select("id");
+      const { data, error: e } = await supabase.from("discovered_companies").upsert(batch, { onConflict: "organization_id,cin", ignoreDuplicates: true }).select("id, cin");
       if (e) {
         batch.forEach((b) => rejected.push({ row: 0, error: errText(e), data: b }));
         continue;
       }
       inserted += data?.length ?? 0;
+      // Email registered with MCA = public government record, stored as the company's contact.
+      const contacts = (data ?? []).filter((d) => emailsByCin.has(d.cin as string)).map((d) => ({
+        organization_id: orgId, company_id: d.id, contact_type: "email", contact_value: emailsByCin.get(d.cin as string)!,
+        contact_kind: "company_general", source_url: "https://www.mca.gov.in/content/mca/global/en/mca/master-data/MDS.html",
+        verification_status: "publicly_listed", confidence_score: 40, created_by: user!.id,
+      }));
+      // Only newly inserted companies are returned, so these contacts cannot already exist.
+      if (contacts.length) await supabase.from("lead_contacts").insert(contacts);
     }
     const duplicates = toInsert.length - inserted - rejected.filter((r) => r.row === 0).length;
     await supabase.from("lead_import_jobs").update({

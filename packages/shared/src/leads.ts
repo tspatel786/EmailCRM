@@ -356,6 +356,13 @@ export function candidateDomains(companyName: string): string[] {
   return out.slice(0, 9);
 }
 
+/** A company-owned domain from its registered email (ignores Gmail/Yahoo etc.), to check as its website. */
+export function websiteFromEmail(email?: string | null): string | null {
+  const domain = (email ?? "").toLowerCase().split("@")[1];
+  if (!domain || FREE_MAIL.test(domain) || !/^[a-z0-9.-]+\.[a-z]{2,24}$/.test(domain)) return null;
+  return registrableDomain(domain);
+}
+
 /** True when page text clearly refers to the company (CIN, or most of its significant name words). */
 export function pageMatchesCompany(pageText: string, companyName: string, cin?: string | null): boolean {
   const t = pageText.toLowerCase();
@@ -385,30 +392,41 @@ export function manualSearchLinks(companyName: string, cin?: string | null, webs
 export const LEAD_IMPORT_FIELDS = [
   "cin", "company_name", "registration_date", "company_status", "company_class", "company_category",
   "state", "city", "registered_address", "nic_code", "business_activity", "authorized_capital", "paid_up_capital",
+  "registered_email",
 ] as const;
 export type LeadImportField = (typeof LEAD_IMPORT_FIELDS)[number];
 
-const HEADER_SYNONYMS: Record<LeadImportField, RegExp> = {
-  cin: /^(cin|corporate identification number|company cin|llpin|cin\/llpin|fcrn)$/i,
-  company_name: /^(company name|name of (the )?company|company_name|companyname|llp name|name)$/i,
-  registration_date: /^(date of (incorporation|registration)|incorporation date|registration date|companyregistrationdate(_date)?|date_of_registration|doi)$/i,
-  company_status: /^(company status|status|companystatus|company_status)$/i,
-  company_class: /^(company class|class|companyclass|company_class)$/i,
-  company_category: /^(company category|category|companycategory|company_category)$/i,
-  state: /^(state|registered state|companystatecode|state name|roc state)$/i,
-  city: /^(city|district|registered city)$/i,
-  registered_address: /^(registered (office )?address|address|registered_office_address|roc address)$/i,
-  nic_code: /^(nic|nic code|nic_code|industrial classification code|principal business activity code|activity code)$/i,
-  business_activity: /^(business activity|principal business activity|activity description|companyindustrialclassification|industrial classification|activity)$/i,
-  authorized_capital: /^(authori[sz]ed capital|authorizedcapital|authorised capital \(rs\))$/i,
-  paid_up_capital: /^(paid ?up capital|paidupcapital|paid up capital \(rs\))$/i,
+// Header names are compared after removing everything except letters and digits, so
+// "DATE_OF_REGISTRATION", "Date of Registration" and "date-of-registration" all match. Includes the
+// column names used by MCA's monthly "companies registered" files and the data.gov.in company
+// master data (CSV and API).
+const HEADER_KEYS: Record<LeadImportField, string[]> = {
+  cin: ["cin", "corporateidentificationnumber", "companycin", "llpin", "cinllpin", "cinfcrn", "fcrn", "cinno", "cinnumber"],
+  company_name: ["companyname", "nameofthecompany", "nameofcompany", "llpname", "companyllpname", "name"],
+  registration_date: ["dateofregistration", "dateofincorporation", "incorporationdate", "registrationdate", "companyregistrationdatedate", "companyregistrationdate", "doi", "dor"],
+  company_status: ["companystatus", "status", "llpstatus", "companystatusforefiling"],
+  company_class: ["companyclass", "class", "classofcompany"],
+  company_category: ["companycategory", "category", "categoryofcompany", "companytype", "typeofcompany"],
+  state: ["state", "registeredstate", "companystatecode", "statename", "rocstate", "statecode"],
+  city: ["city", "district", "registeredcity"],
+  registered_address: ["registeredofficeaddress", "registeredaddress", "address", "registeredofficeaddressroa", "officeaddress"],
+  nic_code: ["nic", "niccode", "industrialclass", "industrialclassification", "activitycode", "principalbusinessactivitycode", "mainactivitycode"],
+  business_activity: ["principalbusinessactivityaspercin", "principalbusinessactivity", "businessactivity", "activitydescription", "companyindustrialclassification", "activity", "mainbusinessactivity"],
+  authorized_capital: ["authorizedcapital", "authorisedcapital", "authorizedcap", "authorisedcap", "authorizedcapitalrs", "authorisedcapitalrs"],
+  paid_up_capital: ["paidupcapital", "paidupcap", "paidupcapitalrs", "paidcapital"],
+  registered_email: ["emailaddr", "email", "emailid", "emailaddress", "registeredemail", "companyemail", "emailofcompany"],
 };
+const headerKey = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export function guessColumnMapping(headers: string[]): Partial<Record<LeadImportField, string>> {
   const map: Partial<Record<LeadImportField, string>> = {};
-  for (const h of headers) {
-    const clean = h.replace(/\s+/g, " ").trim();
-    for (const f of LEAD_IMPORT_FIELDS) if (!map[f] && HEADER_SYNONYMS[f].test(clean)) map[f] = h;
+  const keyed = headers.map((h) => ({ h, k: headerKey(h) }));
+  // Exact key matches first (most specific), field by field.
+  for (const f of LEAD_IMPORT_FIELDS) {
+    for (const want of HEADER_KEYS[f]) {
+      const hit = keyed.find((x) => x.k === want && !Object.values(map).includes(x.h));
+      if (hit) { map[f] = hit.h; break; }
+    }
   }
   return map;
 }
@@ -455,6 +473,8 @@ export type NormalizedCompany = {
   industry: Industry;
   authorized_capital: number | null;
   paid_up_capital: number | null;
+  /** Email registered with MCA, when the file includes it (public government record). */
+  registered_email: string | null;
 };
 
 /** Validates and normalizes one imported row. Returns an error message for rejected rows. */
@@ -500,6 +520,7 @@ export function normalizeCompanyRow(row: Record<string, unknown>, map: Partial<R
       industry: industry === "Other" && activity ? industryFromText(activity) : industry,
       authorized_capital: money("authorized_capital"),
       paid_up_capital: money("paid_up_capital"),
+      registered_email: /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,24}$/i.test(get("registered_email")) ? get("registered_email").toLowerCase() : null,
     },
   };
 }

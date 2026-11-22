@@ -9,6 +9,7 @@ import { fmtDate, telHref, todayIsoDate } from "../lib/format";
 import { downloadMultiSheetWorkbook } from "../lib/export";
 import { isMissingTableError } from "../lib/leadCrm";
 import { CompanyDrawer } from "../components/leads/CompanyDrawer";
+import { SimpleBar } from "../components/leads/LeadCharts";
 import { NoAccess, NotInstalled } from "./LeadFinder";
 import { Badge, Button, Card, Empty, ErrorBox, Input, PageHeader, Select, StatCard, TableSkeleton, Toolbar } from "../components/ui";
 
@@ -140,6 +141,17 @@ export function DecisionMakersPage() {
             <StatCard label="Missing contacts" value={stats.missing} tone="slate" />
             <StatCard label="Added today" value={stats.todayCount} tone="teal" />
           </div>
+          {rows.length ? (
+            <div className="mb-4 grid gap-4 lg:grid-cols-2">
+              <SimpleBar title="Decision makers by role" data={(Object.keys(ROLE_LABELS) as Role[]).map((r) => ({ name: ROLE_LABELS[r], n: rows.filter((x) => x.roles.includes(r)).length })).filter((p) => p.n)} color="#8b5cf6" horizontal />
+              <SimpleBar title="Contact availability" data={[
+                { name: "Email + phone", n: rows.filter((r) => r.lead_contacts.some((c) => c.contact_type === "email") && r.lead_contacts.some((c) => c.contact_type === "phone")).length },
+                { name: "Email only", n: rows.filter((r) => r.lead_contacts.some((c) => c.contact_type === "email") && !r.lead_contacts.some((c) => c.contact_type === "phone")).length },
+                { name: "Phone only", n: rows.filter((r) => !r.lead_contacts.some((c) => c.contact_type === "email") && r.lead_contacts.some((c) => c.contact_type === "phone")).length },
+                { name: "None", n: rows.filter((r) => !r.lead_contacts.length).length },
+              ]} color="#10b981" />
+            </div>
+          ) : null}
           <div className="mb-3 flex flex-wrap gap-1">
             {TABS.map((t) => (
               <button key={t.key} type="button" onClick={() => setTab(t.key)}

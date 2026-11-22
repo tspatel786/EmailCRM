@@ -185,6 +185,17 @@ export function DashboardPage() {
   });
   const pay = payQuery.data;
 
+  const leadQuery = useQuery({
+    queryKey: ["dashboard-leads", orgId],
+    enabled: Boolean(orgId && org?.lead_finder_access),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("lead_finder_stats").select("*").eq("organization_id", orgId!).maybeSingle();
+      if (error) return null; // migration not applied or no access: just hide the tiles
+      return data as Record<string, number> | null;
+    },
+  });
+  const lead = leadQuery.data;
+
   const c = query.data?.counts;
 
   type Tile = { label: string; value: string | number; icon: typeof Users; tone: BadgeTone };
@@ -217,6 +228,19 @@ export function DashboardPage() {
                   { label: "Pending Payments", value: pay.pending, icon: Clock, tone: "rose" as BadgeTone },
                   { label: "Partial Payments", value: pay.partial, icon: Wallet, tone: "amber" as BadgeTone },
                   { label: "Outstanding Amount", value: money(pay.outstanding), icon: AlertCircle, tone: "violet" as BadgeTone },
+                ],
+              },
+            ]
+          : []),
+        ...(lead
+          ? [
+              {
+                title: "Lead Finder",
+                tiles: [
+                  { label: "New Companies Found", value: Number(lead.total_companies ?? 0), icon: Users, tone: "blue" as BadgeTone },
+                  { label: "With Business Email", value: Number(lead.with_email ?? 0), icon: MailCheck, tone: "green" as BadgeTone },
+                  { label: "Decision Makers", value: Number(lead.decision_makers ?? 0), icon: UserPlus, tone: "violet" as BadgeTone },
+                  { label: "Saved to CRM", value: Number(lead.saved_to_crm ?? 0), icon: CheckCircle2, tone: "amber" as BadgeTone },
                 ],
               },
             ]

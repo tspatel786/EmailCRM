@@ -11,6 +11,7 @@ import {
   extractPeople,
   extractPhones,
   htmlToLines,
+  matchRoles,
   normalizeCompanyRow,
   pageMatchesCompany,
   scoreLead,
@@ -111,7 +112,15 @@ type CompanyRow = {
 };
 
 async function findWebsite(c: CompanyRow): Promise<{ url: string; status: "confirmed" | "suggested" } | null> {
-  if (c.website && c.website_status !== "rejected") return { url: c.website, status: c.website_status === "confirmed" ? "confirmed" : "suggested" };
+  if (c.website && c.website_status === "confirmed") return { url: c.website, status: "confirmed" };
+  if (c.website && c.website_status === "suggested") {
+    // Suggested = from the MCA-registered email domain or an earlier auto-match. Use it only if it loads.
+    const page = await fetchText(c.website);
+    if (page.ok) {
+      const text = htmlToLines(page.text).join(" ");
+      return { url: new URL(page.url).origin, status: text.toUpperCase().includes(c.cin) ? "confirmed" : "suggested" };
+    }
+  }
   for (const domain of candidateDomains(c.company_name)) {
     const page = await fetchText(`https://${domain}/`);
     if (!page.ok) continue;
@@ -384,7 +393,8 @@ async function importDataGov(org: string, key: string) {
       if (!n.ok) { failed++; if (errors.length < 50) errors.push(n.error); continue; }
       if (n.value.registration_date && new Date(n.value.registration_date) < since) { olderThanWindow = true; continue; }
       const s = scoreLead({ registrationDate: n.value.registration_date, hasWebsite: false, hasBusinessEmail: false, hasBusinessPhone: false, industry: n.value.industry });
-      valid.push({ ...n.value, organization_id: org, source_key: "data_gov_in", source_url: `https://www.data.gov.in/resource/${DATA_GOV_RESOURCE}`, import_job_id: job.data.id,
+      const { registered_email: _email, ...company } = n.value;
+      valid.push({ ...company, organization_id: org, source_key: "data_gov_in", source_url: `https://www.data.gov.in/resource/${DATA_GOV_RESOURCE}`, import_job_id: job.data.id,
         lead_score: s.score, score_reasons: s.reasons, opportunities: suggestOpportunities(n.value.industry, false) });
     }
     if (valid.length) {
@@ -402,4 +412,93 @@ async function importDataGov(org: string, key: string) {
     errors, finished_at: new Date().toISOString(),
   }).eq("id", job.data.id);
   await touchSource(org, "data_gov_in", true, null);
+}
+
+/* ---------------------------- Optional Hunter.io ---------------------------- */
+
+let lastHunterRun = "";
+
+/**
+ * Hunter.io Domain Search, only when HUNTER_API_KEY is set AND the source is switched on.
+ * Uses the free account endpoint (no credit) to read remaining credits first and stops at zero.
+ * Stores only emails Hunter reports with at least one public source page (never pattern guesses).
+ */
+export async function processHunter(): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  if (lastHunterRun === today) return;
+  lastHunterRun = today;
+  const key = process.env.HUNTER_API_KEY?.trim();
+  const { data: sources, error } = await admin.from("lead_sources").select("organization_id, enabled, refresh_days").eq("source_key", "hunter");
+  if (missingTables(error) || error) return;
+  for (const s of sources ?? []) {
+    if (!key) {
+      await admin.from("lead_sources").update({ status: "not_configured", last_run_at: new Date().toISOString() }).eq("organization_id", s.organization_id).eq("source_key", "hunter");
+      continue;
+    }
+    if (!s.enabled) continue;
+    try {
+      await runHunter(s.organization_id, key, s.refresh_days);
+    } catch (e) {
+      await touchSource(s.organization_id, "hunter", false, (e instanceof Error ? e.message : String(e)).replace(key, "***"));
+    }
+  }
+}
+
+async function runHunter(org: string, key: string, refreshDays: number) {
+  const acct = await fetch(`https://api.hunter.io/v2/account?api_key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(15_000) });
+  if (!acct.ok) throw new Error(`Hunter account check failed (HTTP ${acct.status})`);
+  const a = (await acct.json()) as { data?: { requests?: { credits?: { used?: number; available?: number }; searches?: { used?: number; available?: number } } } };
+  const pool = a.data?.requests?.credits ?? a.data?.requests?.searches ?? {};
+  const remaining = Math.max(0, Number(pool.available ?? 0) - Number(pool.used ?? 0));
+  await admin.from("lead_sources").update({ usage_month: new Date().toISOString().slice(0, 7), usage_count: Number(pool.used ?? 0), usage_limit: Number(pool.available ?? 0) })
+    .eq("organization_id", org).eq("source_key", "hunter");
+  if (remaining <= 0) {
+    await touchSource(org, "hunter", false, "Free credits used up for this month; lookups paused until they reset.");
+    return;
+  }
+  const cutoff = new Date(Date.now() - refreshDays * 86400000).toISOString();
+  const { data: companies } = await admin
+    .from("discovered_companies")
+    .select("id, website, website_status")
+    .eq("organization_id", org)
+    .not("website", "is", null)
+    .neq("website_status", "rejected")
+    .or(`hunter_checked_at.is.null,hunter_checked_at.lt.${cutoff}`)
+    .order("lead_score", { ascending: false })
+    .limit(Math.min(remaining, 5)); // at most 5 per day so the monthly free pool lasts
+  const job = await admin.from("lead_import_jobs").insert({ organization_id: org, source_key: "hunter", kind: "contact_discovery", status: "running" }).select("id").maybeSingle();
+  let found = 0, checked = 0;
+  for (const c of companies ?? []) {
+    const domain = new URL(c.website!).hostname.replace(/^www\./, "");
+    const res = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(20_000) });
+    checked++;
+    await admin.from("discovered_companies").update({ hunter_checked_at: new Date().toISOString() }).eq("id", c.id);
+    if (res.status === 429) break;
+    if (!res.ok) continue;
+    const body = (await res.json()) as { data?: { emails?: { value: string; type?: string; first_name?: string | null; last_name?: string | null; position?: string | null; sources?: { uri?: string }[] }[] } };
+    for (const e of body.data?.emails ?? []) {
+      const src = e.sources?.find((x) => x.uri && /^https?:\/\//.test(x.uri))?.uri;
+      if (!src) continue; // no public source = Hunter inferred it from a pattern: never stored
+      const person = e.type === "personal" && e.first_name && e.last_name ? `${e.first_name} ${e.last_name}` : null;
+      const roles = matchRoles(e.position);
+      let dmId: string | null = null;
+      if (person && roles.length) {
+        const { data: existing } = await admin.from("decision_makers").select("id").eq("company_id", c.id).ilike("full_name", person.replace(/[%_]/g, "")).limit(1).maybeSingle();
+        dmId = existing?.id ?? null;
+        if (!dmId) {
+          const conf = contactConfidence({ officialWebsite: false, exactNameAndDesignation: Boolean(e.position), businessEmail: true, businessPhone: false, matchingProfile: false });
+          const ins = await admin.from("decision_makers").insert({
+            organization_id: org, company_id: c.id, full_name: person, original_designation: e.position, roles, source_type: "api", source_url: src,
+            verification_status: "unverified", confidence_score: conf.score, score_reasons: [...conf.reasons, { label: "Listed by Hunter.io with a public source", points: 0 }],
+          }).select("id").maybeSingle();
+          dmId = ins.data?.id ?? null;
+        }
+      }
+      await saveContact(org, c.id, dmId, "email", e.value.toLowerCase(), dmId ? "person_professional" : e.type === "generic" ? "company_general" : "department", src);
+      found++;
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  await admin.from("lead_import_jobs").update({ status: "success", fetched_count: checked, inserted_count: found, message: `${checked} domains checked, ${found} sourced emails`, finished_at: new Date().toISOString() }).eq("id", job.data?.id ?? "");
+  await touchSource(org, "hunter", true, null);
 }

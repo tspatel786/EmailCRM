@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   normalizeCin, parseCin, normalizeCompanyName, industryFromNic, industryFromText, suggestOpportunities, scoreLead,
   matchRoles, extractEmails, extractPhones, htmlToLines, extractPeople, contactConfidence, candidateDomains,
-  pageMatchesCompany, guessColumnMapping, parseDateFlexible, normalizeCompanyRow, registrableDomain,
+  pageMatchesCompany, guessColumnMapping, parseDateFlexible, normalizeCompanyRow, registrableDomain, websiteFromEmail,
 } from "../dist/leads.js";
 
 test("CIN normalization and parsing", () => {
@@ -123,4 +123,38 @@ test("MCA file mapping, dates and row validation", () => {
   assert.equal(ok.value.company_name, "Test Soft Pvt Ltd");
   assert.equal(normalizeCompanyRow({ CIN: "123", COMPANY_NAME: "X" }, map).ok, false);
   assert.equal(normalizeCompanyRow({ CIN: "U62099MH2026PTC123456", COMPANY_NAME: "X", DATE_OF_REGISTRATION: "someday" }, map).ok, false);
+});
+
+test("real MCA / data.gov.in company master columns are recognised", () => {
+  const headers = ["CORPORATE_IDENTIFICATION_NUMBER", "COMPANY_NAME", "COMPANY_STATUS", "COMPANY_CLASS", "COMPANY_CATEGORY", "COMPANY_SUB_CATEGORY",
+    "DATE_OF_REGISTRATION", "REGISTERED_STATE", "AUTHORIZED_CAP", "PAIDUP_CAPITAL", "INDUSTRIAL_CLASS", "PRINCIPAL_BUSINESS_ACTIVITY_AS_PER_CIN",
+    "REGISTERED_OFFICE_ADDRESS", "REGISTRAR_OF_COMPANIES", "EMAIL_ADDR"];
+  const m = guessColumnMapping(headers);
+  assert.equal(m.cin, "CORPORATE_IDENTIFICATION_NUMBER");
+  assert.equal(m.state, "REGISTERED_STATE");
+  assert.equal(m.authorized_capital, "AUTHORIZED_CAP");
+  assert.equal(m.paid_up_capital, "PAIDUP_CAPITAL");
+  assert.equal(m.nic_code, "INDUSTRIAL_CLASS");
+  assert.equal(m.business_activity, "PRINCIPAL_BUSINESS_ACTIVITY_AS_PER_CIN");
+  assert.equal(m.registered_email, "EMAIL_ADDR");
+  assert.equal(m.company_category, "COMPANY_CATEGORY", "sub-category must not steal category");
+  const api = guessColumnMapping(["CIN", "CompanyName", "CompanyRegistrationdate_date", "CompanyStateCode", "nic_code", "CompanyIndustrialClassification", "Registered_Office_Address", "AuthorizedCapital", "PaidupCapital"]);
+  assert.equal(api.registration_date, "CompanyRegistrationdate_date");
+  assert.equal(api.state, "CompanyStateCode");
+  assert.equal(api.business_activity, "CompanyIndustrialClassification");
+  const row = normalizeCompanyRow({ CORPORATE_IDENTIFICATION_NUMBER: "U25999MH2026PTC111111", COMPANY_NAME: "Acme Fab Private Limited", DATE_OF_REGISTRATION: "05-10-2026",
+    REGISTERED_STATE: "Maharashtra", PAIDUP_CAPITAL: "1,00,000", INDUSTRIAL_CLASS: "25999", EMAIL_ADDR: "Info@AcmeFab.in" }, m);
+  assert.equal(row.ok, true);
+  assert.equal(row.value.registered_email, "info@acmefab.in");
+  assert.equal(row.value.paid_up_capital, 100000);
+  assert.equal(row.value.industry, "Manufacturing");
+  assert.equal(normalizeCompanyRow({ CORPORATE_IDENTIFICATION_NUMBER: "U25999MH2026PTC111112", COMPANY_NAME: "X", EMAIL_ADDR: "not-an-email" }, m).value.registered_email, null);
+});
+
+test("website from registered email domain ignores free mail", () => {
+  assert.equal(websiteFromEmail("info@acmefab.co.in"), "acmefab.co.in");
+  assert.equal(websiteFromEmail("ca.office@mail.acme.com"), "acme.com");
+  assert.equal(websiteFromEmail("someone@gmail.com"), null);
+  assert.equal(websiteFromEmail("x@rediffmail.com"), null);
+  assert.equal(websiteFromEmail(null), null);
 });
