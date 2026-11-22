@@ -5,6 +5,7 @@ import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Field, Input, PageHeader } from "../components/ui";
 import { Settings as SettingsIcon } from "lucide-react";
+import { SignatureCard } from "../components/mail/SignatureCard";
 
 export function SettingsPage() {
   const { org, user, refresh } = useSession();
@@ -106,6 +107,7 @@ export function SettingsPage() {
       ) : (
         <p className="text-sm text-slate-600 dark:text-ink-300">Only owners and admins can change organization settings.</p>
       )}
+      <SignatureCard />
       <Card className="mt-4 max-w-lg space-y-3">
         <h2 className="font-medium">Privileged MFA (TOTP)</h2>
         <p className="text-sm text-slate-600 dark:text-ink-300">Enroll a TOTP factor on your Auth user. Recommended for owner and admin accounts.</p>

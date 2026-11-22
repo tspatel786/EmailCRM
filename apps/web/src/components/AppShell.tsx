@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   type LucideIcon,
+  Wallet,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -57,6 +58,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { to: "/app/import", label: "Import Excel", icon: FileSpreadsheet },
       { to: "/app/deals", label: "Deals", icon: Kanban },
       { to: "/app/quotations", label: "Quotations", icon: Receipt },
+      { to: "/app/payments", label: "Payments", icon: Wallet },
       { to: "/app/projects", label: "Projects", icon: FolderKanban },
     ],
   },

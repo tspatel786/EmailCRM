@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { startOfMonth } from "date-fns";
 import { useSession } from "../lib/session";
+import { PaymentReports } from "../components/PaymentReports";
 import { supabase } from "../lib/supabase";
 import { fmtDateTime } from "../lib/format";
 import { downloadWorkbook, downloadMultiSheetWorkbook } from "../lib/export";
@@ -210,6 +211,7 @@ export function ReportsPage() {
           </Card>
         </div>
       )}
+      {org ? <div className="mt-6"><PaymentReports orgId={org.organization_id} from={from} to={to} /></div> : null}
     </div>
   );
 }

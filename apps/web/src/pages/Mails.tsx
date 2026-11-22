@@ -12,22 +12,33 @@ import {
   Star,
   Trash2,
   Reply,
-  CheckCircle2,
+  ReplyAll,
+  Forward,
+  FileEdit,
+  Paperclip,
+  Download,
   Eye,
   ExternalLink,
   User,
+  Building2,
   ArrowLeft,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
-import { Button, Empty, Input, Modal, PageHeader, SearchInput, Select, TableSkeleton, Textarea } from "../components/ui";
+import { Button, Empty, PageHeader, SearchInput, TableSkeleton } from "../components/ui";
+import { Composer, type ComposerInit } from "../components/mail/Composer";
+import {
+  copyAttachment,
+  formatBytes,
+  quoteBlock,
+  signedUrl,
+  stripSubjectPrefix,
+  textToHtml,
+  type MailAttachment,
+} from "../components/mail/mailUtils";
 
-type Folder = "inbox" | "sent" | "queued" | "failed";
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
+type Folder = "inbox" | "sent" | "draft" | "queued" | "failed";
 
 type Message = {
   id: string;
@@ -35,7 +46,7 @@ type Message = {
   contact_id: string | null;
   direction: "inbound" | "outbound";
   folder: Folder;
-  status: "received" | "queued" | "processing" | "sent" | "delivered" | "opened" | "clicked" | "bounced" | "failed";
+  status: "draft" | "received" | "queued" | "processing" | "sent" | "delivered" | "opened" | "clicked" | "bounced" | "failed";
   from_name: string;
   from_email: string;
   to_name: string;
@@ -48,7 +59,15 @@ type Message = {
   is_read: boolean;
   is_starred: boolean;
   created_at: string;
+  cc: string[] | null;
+  bcc: string[] | null;
+  attachments: MailAttachment[] | null;
+  thread_id: string | null;
+  rfc_message_id: string | null;
+  company_id: string | null;
+  owner_user_id: string | null;
   contacts?: { id: string; full_name: string; primary_email: string | null; company_id: string | null } | null;
+  companies?: { id: string; name: string } | null;
 };
 
 export function MailsPage() {
@@ -61,32 +80,9 @@ export function MailsPage() {
   // Small screens show either the list or the reader; purely presentational.
   const [readerOpen, setReaderOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [replyOpen, setReplyOpen] = useState(false);
-
-  // Form states for compose
-  const [composeTo, setComposeTo] = useState("");
-  const [composeContactId, setComposeContactId] = useState("");
-  const [composeSubject, setComposeSubject] = useState("");
-  const [composeBody, setComposeBody] = useState("");
-  const [composeSending, setComposeSending] = useState(false);
-  const [composeError, setComposeError] = useState("");
-  const [composeSuccess, setComposeSuccess] = useState("");
-
-  // Contacts lookup for auto-complete
-  const contactsQuery = useQuery({
-    queryKey: ["contacts-for-mail", orgId],
-    enabled: Boolean(orgId && composeOpen),
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("contacts")
-        .select("id, full_name, primary_email")
-        .eq("organization_id", orgId!)
-        .not("primary_email", "is", null)
-        .order("full_name");
-      return data ?? [];
-    },
-  });
+  const [composer, setComposer] = useState<(ComposerInit & { key: number }) | null>(null);
+  const [actionError, setActionError] = useState("");
+  const openComposer = (init: ComposerInit) => setComposer({ ...init, key: Date.now() });
 
   // Query unread count for inbox
   const unreadCountQuery = useQuery({
@@ -112,7 +108,7 @@ export function MailsPage() {
       const { data, error } = await supabase
         .from("messages")
         .select(
-          `id, organization_id, contact_id, direction, folder, status, from_name, from_email, to_name, to_email, subject, body_text, body_html, provider, provider_message_id, is_read, is_starred, created_at, contacts(id, full_name, primary_email, company_id)`
+          `id, organization_id, contact_id, direction, folder, status, from_name, from_email, to_name, to_email, cc, bcc, subject, body_text, body_html, provider, provider_message_id, is_read, is_starred, created_at, attachments, thread_id, rfc_message_id, company_id, owner_user_id, contacts(id, full_name, primary_email, company_id), companies(id, name)`
         )
         .eq("organization_id", orgId!)
         .eq("folder", activeFolder)
@@ -123,7 +119,8 @@ export function MailsPage() {
       const rows = (data ?? []).map((row) => {
         const raw = row as unknown as Record<string, unknown> & { contacts?: unknown };
         const contacts = Array.isArray(raw.contacts) ? raw.contacts[0] : raw.contacts;
-        return { ...raw, contacts } as unknown as Message;
+        const companies = Array.isArray(raw.companies) ? raw.companies[0] : raw.companies;
+        return { ...raw, contacts, companies } as unknown as Message;
       });
       return rows;
     },
@@ -190,101 +187,104 @@ export function MailsPage() {
     }
   };
 
-  // Compose / Send handler (uses demo email / Resend)
-  const handleSendCompose = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgId || !composeTo.trim()) return;
-    const recipient = composeTo.trim();
-    if (!/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]{2,}$/.test(recipient)) {
-      setComposeError("Enter a single valid email address in the To field.");
-      return;
-    }
-
-    setComposeSending(true);
-    setComposeError("");
-    setComposeSuccess("");
-
-    try {
-      // 1. Insert into messages table as queued for worker dispatch
-      const { data: newMsg, error: insertError } = await supabase
+  // Conversation history for the open message (same thread_id), oldest first.
+  const threadKey = selectedMessage ? selectedMessage.thread_id ?? selectedMessage.id : null;
+  const threadQuery = useQuery({
+    queryKey: ["message-thread", orgId, threadKey],
+    enabled: Boolean(orgId && threadKey && selectedMessage?.folder !== "draft"),
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("messages")
-        .insert({
-          organization_id: orgId,
-          contact_id: composeContactId || null,
-          owner_user_id: user!.id,
-          direction: "outbound",
-          folder: "queued",
-          status: "queued",
-          from_name: org?.organizations?.name || "S.M.PATEL IT HUB",
-          from_email: "sales@updates.smpatelithub.in",
-          to_email: recipient,
-          to_name: recipient,
-          subject: composeSubject.trim() || "(No Subject)",
-          body_text: composeBody,
-          body_html: `<div style="font-family: sans-serif; line-height: 1.5;">${escapeHtml(composeBody).replace(/\n/g, "<br/>")}</div>`,
-          provider: "resend",
-          is_read: true,
-        })
-        .select("id")
-        .single();
+        .select("id, direction, folder, status, from_name, from_email, to_email, subject, body_text, created_at")
+        .eq("organization_id", orgId!)
+        .or(`thread_id.eq.${threadKey},id.eq.${threadKey}`)
+        .neq("folder", "draft")
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const thread = (threadQuery.data ?? []).filter((m) => m.id !== selectedMessage?.id);
 
-      if (insertError) throw insertError;
+  const quoteHeader = (m: Message) =>
+    `On ${new Date(m.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}, ${m.from_name || m.from_email} <${m.from_email}> wrote:`;
+  const originalHtml = (m: Message) => m.body_html || textToHtml(m.body_text || "");
+  const replyBase = (m: Message): Partial<ComposerInit> => ({
+    contactId: m.contact_id,
+    companyId: m.company_id ?? m.contacts?.company_id ?? null,
+    inReplyTo: m.rfc_message_id,
+    threadId: m.thread_id ?? m.id,
+  });
 
-      // 2. Also record in activities timeline if linked to contact
-      if (composeContactId) {
-        await supabase.from("activities").insert({
-          organization_id: orgId,
-          contact_id: composeContactId,
-          actor_user_id: user!.id,
-          activity_type: "email",
-          summary: `Sent Email: ${composeSubject.trim() || "(No Subject)"}`,
-          outcome: composeBody.slice(0, 500),
-          occurred_at: new Date().toISOString(),
-        });
-      }
-
-      setComposeSuccess("Email queued. It is usually sent within a minute; check the Sent folder.");
-      qc.invalidateQueries({ queryKey: ["messages", orgId] });
-
-      setTimeout(() => {
-        setComposeOpen(false);
-        setReplyOpen(false);
-        setComposeTo("");
-        setComposeContactId("");
-        setComposeSubject("");
-        setComposeBody("");
-        setComposeSuccess("");
-      }, 1000);
-    } catch (err: unknown) {
-      // Supabase errors are plain objects ({ message, details, hint }), not Error instances.
-      const msg =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err && "message" in err
-            ? String((err as { message: unknown }).message)
-            : String(err);
-      setComposeError(msg || "Could not queue the email. Please try again.");
-    } finally {
-      setComposeSending(false);
-    }
+  const handleReply = (all: boolean) => {
+    const m = selectedMessage;
+    if (!m) return;
+    const ours = (e: string) => e.toLowerCase() === "sales@updates.smpatelithub.in";
+    // Replying to our own sent mail goes back to its recipient, like Gmail.
+    const primary = m.direction === "outbound" ? m.to_email : m.from_email;
+    const others = all
+      ? [m.to_email, m.from_email, ...(m.cc ?? [])].filter((e) => e && !ours(e) && e.toLowerCase() !== primary.toLowerCase())
+      : [];
+    openComposer({
+      ...replyBase(m),
+      title: all ? "Reply all" : "Reply",
+      to: [primary],
+      cc: [...new Set(others)],
+      subject: `Re: ${stripSubjectPrefix(m.subject)}`,
+      bodyHtml: quoteBlock(quoteHeader(m), originalHtml(m)),
+    });
   };
 
-  const handleOpenReply = () => {
-    if (!selectedMessage) return;
-    setComposeTo(selectedMessage.from_email);
-    setComposeContactId(selectedMessage.contact_id || "");
-    setComposeSubject(
-      selectedMessage.subject.startsWith("Re:")
-        ? selectedMessage.subject
-        : `Re: ${selectedMessage.subject}`
-    );
-    setComposeBody(`\n\n--- On ${new Date(selectedMessage.created_at).toLocaleString()} wrote ---\n${selectedMessage.body_text}`);
-    setReplyOpen(true);
+  const handleForward = async () => {
+    const m = selectedMessage;
+    if (!m || !orgId || !user) return;
+    setActionError("");
+    let atts: MailAttachment[] = [];
+    try {
+      atts = await Promise.all((m.attachments ?? []).map((a) => copyAttachment(orgId, user.id, a)));
+    } catch (e) {
+      setActionError(`Attachments could not be copied: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const header = `---------- Forwarded message ----------\nFrom: ${m.from_name} <${m.from_email}>\nDate: ${new Date(m.created_at).toLocaleString()}\nSubject: ${m.subject}\nTo: ${m.to_email}${m.cc?.length ? `\nCc: ${m.cc.join(", ")}` : ""}`;
+    openComposer({
+      contactId: m.contact_id,
+      companyId: m.company_id,
+      title: "Forward",
+      subject: `Fwd: ${stripSubjectPrefix(m.subject)}`,
+      bodyHtml: `<br><br><div class="crm-quote">${textToHtml(header)}<br><br>${originalHtml(m).replace(/<script[\s\S]*?<\/script>/gi, "")}</div>`,
+      attachments: atts,
+    });
+  };
+
+  const openDraft = (m: Message) =>
+    openComposer({
+      draftId: m.id,
+      title: "Draft",
+      to: m.to_email ? [m.to_email] : [],
+      cc: m.cc ?? [],
+      bcc: m.bcc ?? [],
+      subject: m.subject === "(No Subject)" ? "" : m.subject,
+      bodyHtml: m.body_html,
+      contactId: m.contact_id,
+      companyId: m.company_id,
+      threadId: m.thread_id,
+      attachments: m.attachments ?? [],
+    });
+
+  const openAttachment = async (a: MailAttachment, download: boolean) => {
+    setActionError("");
+    try {
+      window.open(await signedUrl(a.path, download ? a.name : undefined), "_blank", "noopener");
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const folders: { key: Folder; label: string; icon: typeof Inbox; count?: number }[] = [
     { key: "inbox", label: "Inbox", icon: Inbox, count: unreadCountQuery.data ?? 0 },
     { key: "sent", label: "Sent", icon: Send },
+    { key: "draft", label: "Drafts", icon: FileEdit },
     { key: "queued", label: "Queued", icon: Clock },
     { key: "failed", label: "Failed / Bounced", icon: AlertTriangle },
   ];
@@ -331,15 +331,7 @@ export function MailsPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => {
-                setComposeTo("");
-                setComposeContactId("");
-                setComposeSubject("");
-                setComposeBody("");
-                setComposeError("");
-                setComposeSuccess("");
-                setComposeOpen(true);
-              }}
+              onClick={() => openComposer({})}
             >
               <PenSquare size={16} />
               Compose Mail
@@ -423,7 +415,7 @@ export function MailsPage() {
             ) : (
               filteredMessages.map((msg) => {
                 const isSelected = selectedMessage?.id === msg.id;
-                const who = activeFolder === "sent" ? `To: ${msg.to_name || msg.to_email}` : msg.from_name || msg.from_email;
+                const who = activeFolder === "sent" || activeFolder === "draft" || activeFolder === "queued" ? (msg.to_email ? `To: ${msg.to_name || msg.to_email}` : "(no recipient)") : msg.from_name || msg.from_email;
                 const unread = !msg.is_read;
                 return (
                   <div
@@ -431,11 +423,13 @@ export function MailsPage() {
                     role="button"
                     tabIndex={0}
                     onClick={() => {
+                      if (msg.folder === "draft") return openDraft(msg);
                       handleSelect(msg);
                       setReaderOpen(true);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
+                        if (msg.folder === "draft") return openDraft(msg);
                         handleSelect(msg);
                         setReaderOpen(true);
                       }
@@ -482,6 +476,7 @@ export function MailsPage() {
                       <span className={unread ? "font-semibold text-ink-900 dark:text-white" : "text-ink-800 dark:text-ink-200"}>{msg.subject || "(No Subject)"}</span>
                       <span className="text-ink-400"> — {msg.body_text || "No preview"}</span>
                     </span>
+                    {msg.attachments?.length ? <Paperclip className="h-3.5 w-3.5 shrink-0 text-ink-400" aria-label="Has attachments" /> : null}
                     <span
                       className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-2xs font-semibold capitalize ring-1 ring-inset ${statusTone(msg.status)}`}
                     >
@@ -529,6 +524,12 @@ export function MailsPage() {
                       <p className="max-w-full whitespace-normal text-xs text-ink-400 [word-break:normal] [writing-mode:horizontal-tb]">
                         to {selectedMessage.to_name} <span className="break-words [overflow-wrap:anywhere]">&lt;{selectedMessage.to_email}&gt;</span>
                       </p>
+                      {selectedMessage.cc?.length ? (
+                        <p className="max-w-full break-words text-xs text-ink-400 [overflow-wrap:anywhere]">cc {selectedMessage.cc.join(", ")}</p>
+                      ) : null}
+                      {selectedMessage.bcc?.length ? (
+                        <p className="max-w-full break-words text-xs text-ink-400 [overflow-wrap:anywhere]">bcc {selectedMessage.bcc.join(", ")}</p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 pl-[52px] sm:pl-0">
@@ -546,29 +547,72 @@ export function MailsPage() {
                       >
                         <Star className={`h-4 w-4 ${selectedMessage.is_starred ? "fill-primary-400 text-primary-500" : "text-ink-400"}`} />
                       </Button>
-                      <Button type="button" variant="ghost" onClick={handleOpenReply}>
+                      <Button type="button" variant="ghost" title="Reply" onClick={() => handleReply(false)}>
                         <Reply size={16} />
-                        Reply
+                        <span className="hidden xl:inline">Reply</span>
+                      </Button>
+                      <Button type="button" variant="ghost" title="Reply all" onClick={() => handleReply(true)}>
+                        <ReplyAll size={16} />
+                        <span className="hidden xl:inline">Reply all</span>
+                      </Button>
+                      <Button type="button" variant="ghost" title="Forward" onClick={() => void handleForward()}>
+                        <Forward size={16} />
+                        <span className="hidden xl:inline">Forward</span>
                       </Button>
                     </div>
                   </div>
                 </div>
 
-                {selectedMessage.contacts ? (
-                  <div className="mt-3 border-t border-ink-100 pt-3 text-xs">
-                    <Link
+                {selectedMessage.contacts || selectedMessage.companies ? (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink-100 pt-3 text-xs">
+                    {selectedMessage.companies ? (
+                      <Link to="/app/companies" className="inline-flex items-center gap-1 font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {selectedMessage.companies.name}
+                      </Link>
+                    ) : null}
+                    {selectedMessage.contacts ? <Link
                       to={`/app/contacts/${selectedMessage.contacts.id}`}
                       className="inline-flex items-center gap-1 font-medium text-primary-700 hover:text-primary-800"
                     >
                       <User className="h-3.5 w-3.5" />
                       View Contact ({selectedMessage.contacts.full_name})
                       <ExternalLink className="h-3 w-3" />
-                    </Link>
+                    </Link> : null}
                   </div>
                 ) : null}
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto bg-ink-50/40 p-3 dark:bg-ink-800/40 sm:p-5">
+                {thread.length ? (
+                  <details className="mb-3 rounded-xl border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
+                    <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-medium text-ink-700 dark:text-ink-200">
+                      Conversation history ({thread.length} earlier/later {thread.length === 1 ? "message" : "messages"})
+                    </summary>
+                    <ol className="divide-y divide-ink-100 border-t border-ink-100 dark:divide-ink-800 dark:border-ink-800">
+                      {thread.map((t) => (
+                        <li key={t.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (t.folder !== activeFolder) setActiveFolder(t.folder as Folder);
+                              setSelectedId(t.id);
+                            }}
+                            className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-ink-50 dark:hover:bg-ink-800"
+                          >
+                            <span className="flex items-center justify-between gap-2 text-xs">
+                              <span className="truncate font-semibold text-ink-800 dark:text-ink-100">
+                                {t.direction === "outbound" ? `You → ${t.to_email}` : t.from_name || t.from_email}
+                              </span>
+                              <span className="shrink-0 text-ink-400">{new Date(t.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
+                            </span>
+                            <span className="line-clamp-2 text-xs text-ink-500 dark:text-ink-400">{t.body_text}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                ) : null}
                 <div className="h-full rounded-xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900 sm:p-5">
                   {selectedMessage.body_html ? (
                     // Inbound HTML comes from arbitrary external senders: render it in a fully
@@ -584,12 +628,32 @@ export function MailsPage() {
                     <pre className="max-w-full whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink-800 dark:text-ink-200 [overflow-wrap:break-word] [word-break:normal]">{selectedMessage.body_text}</pre>
                   )}
                 </div>
+                {selectedMessage.attachments?.length ? (
+                  <div className="mt-3 rounded-xl border border-ink-100 bg-white p-3 dark:border-ink-800 dark:bg-ink-900">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-600 dark:text-ink-300">
+                      <Paperclip size={13} /> {selectedMessage.attachments.length} attachment{selectedMessage.attachments.length > 1 ? "s" : ""}
+                    </p>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {selectedMessage.attachments.map((a) => (
+                        <li key={a.path} className="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700">
+                          <span className="min-w-0 flex-1 truncate font-medium text-ink-800 dark:text-ink-200" title={a.name}>{a.name}</span>
+                          <span className="shrink-0 text-2xs text-ink-400">{formatBytes(a.size)}</span>
+                          <button type="button" aria-label={`Open ${a.name}`} title="Open" onClick={() => void openAttachment(a, false)} className="rounded p-1 text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"><Eye size={14} /></button>
+                          <button type="button" aria-label={`Download ${a.name}`} title="Download" onClick={() => void openAttachment(a, true)} className="rounded p-1 text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"><Download size={14} /></button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {actionError ? (
+                  <p role="alert" className="mt-3 rounded-control border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">{actionError}</p>
+                ) : null}
               </div>
 
               <div className="border-t border-ink-100 p-3 sm:p-4">
                 <button
                   type="button"
-                  onClick={handleOpenReply}
+                  onClick={() => handleReply(false)}
                   className="flex min-h-11 w-full items-center gap-2 rounded-control border border-ink-200 bg-white px-4 text-left text-sm text-ink-500 transition hover:border-ink-300 hover:text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-400 dark:hover:border-ink-600 dark:hover:text-ink-200"
                 >
                   <Reply className="h-4 w-4 shrink-0" />
@@ -607,115 +671,7 @@ export function MailsPage() {
         </div>
       </div>
 
-      {/* Compose & Reply Modal */}
-      <Modal
-        size="lg"
-        open={composeOpen || replyOpen}
-        title={replyOpen ? `Reply to ${composeTo}` : "Compose New Email"}
-        onClose={() => {
-          setComposeOpen(false);
-          setReplyOpen(false);
-        }}
-      >
-          <form onSubmit={handleSendCompose} className="space-y-4">
-            {composeError && (
-              <div role="alert" className="rounded-control border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
-                {composeError}
-              </div>
-            )}
-            {composeSuccess && (
-              <div role="status" className="flex items-center rounded-control border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                {composeSuccess}
-              </div>
-            )}
-
-            {!replyOpen && (
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
-                  Select CRM Contact (Optional)
-                </label>
-                <Select
-                  value={composeContactId}
-                  onChange={(e) => {
-                    const cId = e.target.value;
-                    setComposeContactId(cId);
-                    const found = contactsQuery.data?.find((c) => c.id === cId);
-                    if (found?.primary_email) setComposeTo(found.primary_email);
-                  }}
-                >
-                  <option value="">-- Choose contact --</option>
-                  {contactsQuery.data?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.full_name} ({c.primary_email})
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
-                To Email *
-              </label>
-              <Input
-                type="email"
-                required
-                placeholder="client@example.com"
-                value={composeTo}
-                onChange={(e) => setComposeTo(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
-                Subject *
-              </label>
-              <Input
-                required
-                placeholder="Subject of the email..."
-                value={composeSubject}
-                onChange={(e) => setComposeSubject(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-700 dark:text-ink-300">
-                Message *
-              </label>
-              <Textarea
-                required
-                rows={7}
-                placeholder="Write your email message..."
-                value={composeBody}
-                onChange={(e) => setComposeBody(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 border-t border-ink-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-ink-500">
-                From: <span className="font-medium text-ink-700 dark:text-ink-200">sales@updates.smpatelithub.in</span>
-              </span>
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setComposeOpen(false);
-                    setReplyOpen(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={composeSending}>
-                  <Send size={15} />
-                  {composeSending ? "Sending..." : "Send Email"}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </Modal>
+      {composer ? <Composer key={composer.key} init={composer} onClose={() => setComposer(null)} /> : null}
     </div>
   );
 }

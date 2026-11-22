@@ -1,6 +1,6 @@
 export type FailureClass = "transient" | "permanent" | "ambiguous";
 
-const PERMANENT = /^(5\d\d)|mailbox unavailable|user unknown|does not exist|rejected|blocked|unsubscribed/i;
+const PERMANENT = /^(5\d\d)|^permanent:|mailbox unavailable|user unknown|does not exist|rejected|blocked|unsubscribed/i;
 const TRANSIENT = /^(4\d\d)|timeout|temporar|rate limit|try again|connection|econn|etimedout|socket/i;
 
 export function classifySmtpError(error: unknown): FailureClass {

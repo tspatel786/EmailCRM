@@ -8,6 +8,10 @@ export type SendPayload = {
   text: string;
   html: string;
   headers?: Record<string, string>;
+  cc?: string[];
+  bcc?: string[];
+  replyTo?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 };
 
 export type SendResult =
@@ -50,8 +54,21 @@ async function sendViaResend(payload: SendPayload): Promise<SendResult> {
       text: payload.text,
       html: payload.html,
       headers: payload.headers,
+      ...(payload.cc?.length ? { cc: payload.cc } : {}),
+      ...(payload.bcc?.length ? { bcc: payload.bcc } : {}),
+      ...(payload.replyTo ? { reply_to: payload.replyTo } : {}),
+      ...(payload.attachments?.length
+        ? {
+            attachments: payload.attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content.toString("base64"),
+              ...(a.contentType ? { content_type: a.contentType } : {}),
+            })),
+          }
+        : {}),
     }),
-    signal: AbortSignal.timeout(15_000),
+    // Attachments make the request larger; allow more time than a plain send.
+    signal: AbortSignal.timeout(payload.attachments?.length ? 60_000 : 15_000),
   });
   const body = (await response.json().catch(() => ({}))) as {
     id?: string;
@@ -80,6 +97,10 @@ export async function sendMail(payload: SendPayload): Promise<SendResult> {
       text: payload.text,
       html: payload.html,
       headers: payload.headers,
+      cc: payload.cc,
+      bcc: payload.bcc,
+      replyTo: payload.replyTo,
+      attachments: payload.attachments,
     });
     return { ok: true, messageId: info.messageId || `smtp-${Date.now()}`, mock: false };
   } catch (error) {

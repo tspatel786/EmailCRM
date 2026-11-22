@@ -19,6 +19,7 @@ import { MailsPage } from "./pages/Mails";
 import { TemplatesPage } from "./pages/Templates";
 import { DealsPage } from "./pages/Deals";
 import { QuotationsPage } from "./pages/Quotations";
+import { PaymentsPage } from "./pages/Payments";
 import { MeetingsPage } from "./pages/Meetings";
 import { ProjectsPage } from "./pages/Projects";
 import { ReportsPage } from "./pages/Reports";
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="deals" element={<DealsPage />} />
         <Route path="quotations" element={<QuotationsPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
         <Route path="meetings" element={<MeetingsPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="reports" element={<ReportsPage />} />

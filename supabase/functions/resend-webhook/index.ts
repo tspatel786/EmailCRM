@@ -228,6 +228,57 @@ serve(async (req: Request) => {
 
     // No org can be safely resolved -- do NOT guess (that previously misrouted inbound
     // mail into whichever org happened to be first in the table). Drop and log instead.
+    let bodyText = data.text || "";
+    let bodyHtml = data.html || "";
+    let headers = data.headers ?? {};
+    if (!bodyText && !bodyHtml && emailId) {
+      const full = await fetchReceivedEmail(emailId);
+      bodyText = full?.text || "";
+      bodyHtml = full?.html || "";
+      headers = full?.headers ?? headers;
+    }
+
+    // Threading: a reply carries In-Reply-To / References with the Message-ID we set on the
+    // outbound mail. Match it to put the reply in the same thread and give it to the same owner
+    // (this also routes replies from addresses that are not saved as contacts).
+    const headerVal = (name: string): string => {
+      const h = headers as Record<string, unknown>;
+      const key = Object.keys(h).find((k) => k.toLowerCase() === name);
+      const v = key ? h[key] : (data as Record<string, unknown>)[name.replace(/-/g, "_")];
+      return Array.isArray(v) ? v.join(" ") : typeof v === "string" ? v : "";
+    };
+    const refIds = [...`${headerVal("in-reply-to")} ${headerVal("references")}`.matchAll(/<[^<>\s]{3,300}>/g)].map((m) => m[0]).slice(-20);
+    let parent: { id: string; organization_id: string; owner_user_id: string | null; contact_id: string | null; company_id: string | null; thread_id: string | null } | null = null;
+    if (refIds.length) {
+      const { data: parents } = await admin
+        .from("messages")
+        .select("id, organization_id, owner_user_id, contact_id, company_id, thread_id")
+        .in("rfc_message_id", refIds)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      parent = parents?.[0] ?? null;
+    }
+    if (!parent && fromEmail && data.subject && /^\s*(re|fwd?)\s*:/i.test(data.subject)) {
+      // Fallback when the provider rewrote Message-ID: same subject, sent to this address recently.
+      const baseSubject = data.subject.replace(/^\s*((re|fwd?)\s*:\s*)+/i, "").trim();
+      const { data: parents } = await admin
+        .from("messages")
+        .select("id, organization_id, owner_user_id, contact_id, company_id, thread_id")
+        .eq("direction", "outbound")
+        .ilike("to_email", likeExact(fromEmail))
+        .ilike("subject", `%${likeExact(baseSubject)}%`)
+        .gte("created_at", new Date(Date.now() - 60 * 86400_000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1);
+      parent = parents?.[0] ?? null;
+    }
+    if (parent) {
+      orgId = parent.organization_id;
+      if (!contact || contactId !== parent.contact_id) {
+        contact = parent.contact_id ? { id: parent.contact_id, full_name: "", owner_user_id: parent.owner_user_id } : contact;
+      }
+    }
+
     // Unknown sender: use the explicitly configured default org (never "first org in the
     // table"). Without that setting, drop and log as before.
     if (!orgId && inboundDefaultOrgSlug) {
@@ -244,16 +295,6 @@ serve(async (req: Request) => {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
-    }
-
-    let bodyText = data.text || "";
-    let bodyHtml = data.html || "";
-    let headers = data.headers ?? {};
-    if (!bodyText && !bodyHtml && emailId) {
-      const full = await fetchReceivedEmail(emailId);
-      bodyText = full?.text || "";
-      bodyHtml = full?.html || "";
-      headers = full?.headers ?? headers;
     }
 
     // Resend retries deliveries; skip one we already stored.
@@ -273,7 +314,11 @@ serve(async (req: Request) => {
     const { error: insertError } = await admin.from("messages").insert({
       organization_id: orgId,
       contact_id: contact?.id ?? null,
-      owner_user_id: contact?.owner_user_id ?? null,
+      owner_user_id: parent?.owner_user_id ?? contact?.owner_user_id ?? null,
+      company_id: parent?.company_id ?? null,
+      thread_id: parent ? (parent.thread_id ?? parent.id) : null,
+      in_reply_to: refIds[refIds.length - 1] ?? null,
+      rfc_message_id: headerVal("message-id").match(/<[^<>\s]{3,300}>/)?.[0] ?? null,
       direction: "inbound",
       folder: "inbox",
       status: "received",

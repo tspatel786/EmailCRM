@@ -28,6 +28,8 @@ import {
   Download,
   LayoutDashboard,
   BarChart3,
+  IndianRupee,
+  Wallet,
 } from "lucide-react";
 
 type Counts = {
@@ -159,6 +161,30 @@ export function DashboardPage() {
     },
   });
 
+  // Payment summary cards. Separate query so the rest of the dashboard never depends on it.
+  // "Received" uses the date range; pending/partial/outstanding are as of the "to" date.
+  const payQuery = useQuery({
+    queryKey: ["dashboard-payments", orgId, from, to, scopeToMe],
+    enabled: Boolean(orgId),
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scoped = (q: any) => (scopeToMe ? q.eq("owner_user_id", user!.id) : q);
+      const [pays, sums] = await Promise.all([
+        scoped(supabase.from("payments").select("amount").eq("organization_id", orgId!).eq("status", "valid").gte("payment_date", from).lte("payment_date", to)),
+        scoped(supabase.from("quotation_payment_summary").select("payment_status, outstanding_amount").eq("organization_id", orgId!).lte("created_at", new Date(`${to}T23:59:59`).toISOString())),
+      ]);
+      if (pays.error || sums.error) return null;
+      const s = (sums.data ?? []) as { payment_status: string; outstanding_amount: number }[];
+      return {
+        received: ((pays.data ?? []) as { amount: number }[]).reduce((t, p) => t + Number(p.amount), 0),
+        pending: s.filter((x) => x.payment_status === "pending").length,
+        partial: s.filter((x) => x.payment_status === "partial").length,
+        outstanding: s.reduce((t, x) => t + Number(x.outstanding_amount), 0),
+      };
+    },
+  });
+  const pay = payQuery.data;
+
   const c = query.data?.counts;
 
   type Tile = { label: string; value: string | number; icon: typeof Users; tone: BadgeTone };
@@ -182,14 +208,27 @@ export function DashboardPage() {
             { label: "Upcoming Meetings", value: c.meetings, icon: Calendar, tone: "violet" },
           ],
         },
-        {
+        ...(pay
+          ? [
+              {
+                title: "Payments",
+                tiles: [
+                  { label: "Total Payments Received", value: money(pay.received), icon: IndianRupee, tone: "green" as BadgeTone },
+                  { label: "Pending Payments", value: pay.pending, icon: Clock, tone: "rose" as BadgeTone },
+                  { label: "Partial Payments", value: pay.partial, icon: Wallet, tone: "amber" as BadgeTone },
+                  { label: "Outstanding Amount", value: money(pay.outstanding), icon: AlertCircle, tone: "violet" as BadgeTone },
+                ],
+              },
+            ]
+          : []),
+        ...(canManageCampaigns(org?.role) ? [{
           title: "Email delivery",
           tiles: [
             { label: "Emails Queued", value: c.queued, icon: Send, tone: "blue" },
             { label: "SMTP Accepted", value: c.sent, icon: MailCheck, tone: "green" },
             { label: "Emails Failed", value: c.failed, icon: AlertCircle, tone: "rose" },
-          ],
-        },
+          ] as Tile[],
+        }] : []),
         {
           title: "Sales",
           tiles: [
