@@ -29,8 +29,19 @@ export function TeamPage() {
         .select("id, role, status, user_id, profiles(full_name)")
         .eq("organization_id", org!.organization_id);
       if (error) throw error;
-      return data;
+      // Separate query: still works before the Lead Finder migration exists.
+      const { data: flags } = await supabase.from("memberships").select("id, lead_finder_access").eq("organization_id", org!.organization_id);
+      const f = new Map((flags ?? []).map((x) => [x.id as string, Boolean((x as { lead_finder_access?: boolean }).lead_finder_access)]));
+      return data.map((m) => ({ ...m, lead_finder_access: f.get(m.id) ?? false, lead_flag_supported: Boolean(flags) }));
     },
+  });
+
+  const toggleLead = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+      const { error } = await supabase.from("memberships").update({ lead_finder_access: value }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["team"] }),
   });
 
   const invite = useMutation({
@@ -88,6 +99,7 @@ export function TeamPage() {
                   <th className="py-2">Name</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th title="Lead Finder and Decision Maker Finder">Lead Finder access</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,6 +111,24 @@ export function TeamPage() {
                     </td>
                     <td>
                       <Badge tone={statusTone[m.status] ?? "slate"}>{m.status}</Badge>
+                    </td>
+                    <td>
+                      {m.role === "owner" || m.role === "admin" ? (
+                        <span className="text-xs text-ink-500 dark:text-ink-400">Always</span>
+                      ) : admin && m.lead_flag_supported ? (
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary-500"
+                            checked={m.lead_finder_access}
+                            disabled={toggleLead.isPending}
+                            onChange={(e) => toggleLead.mutate({ id: m.id, value: e.target.checked })}
+                          />
+                          {m.lead_finder_access ? "On" : "Off"}
+                        </label>
+                      ) : (
+                        <span className="text-xs text-ink-500 dark:text-ink-400">{m.lead_finder_access ? "On" : "Off"}</span>
+                      )}
                     </td>
                   </tr>
                 ))}

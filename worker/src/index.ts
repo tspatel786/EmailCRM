@@ -4,6 +4,7 @@ import { claimJobs, heartbeat, processJob, reclaimExpiredLeases } from "./proces
 import { activateScheduledCampaigns, processDueReminders } from "./reminders.js";
 import { processDemoEmails } from "./demo-emails.js";
 import { processOutboundMessages, reclaimExpiredOutboundLeases } from "./outbound-messages.js";
+import { processDataGovImport, processLeadDiscovery } from "./lead-discovery.js";
 
 assertWorkerSecrets();
 
@@ -89,6 +90,8 @@ async function loop(): Promise<void> {
       await runStep("processDueReminders", processDueReminders);
       await runStep("processDemoEmails", processDemoEmails);
       await runStep("processOutboundMessages", processOutboundMessages);
+      await runStep("processLeadDiscovery", processLeadDiscovery);
+      await runStep("processDataGovImport", processDataGovImport);
       const jobs = await claimJobs();
       state.jobsClaimed += jobs.length;
       for (const job of jobs) {

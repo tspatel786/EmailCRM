@@ -37,6 +37,12 @@ const TENANT_TABLES = [
   "quotation_versions",
   "contact_emails",
   "import_batches",
+  "discovered_companies",
+  "decision_makers",
+  "lead_contacts",
+  "lead_sources",
+  "lead_import_jobs",
+  "lead_field_history",
 ];
 
 // 1. Static migration audit: ensure RLS is enabled on every tenant table and no anon read policy exists.

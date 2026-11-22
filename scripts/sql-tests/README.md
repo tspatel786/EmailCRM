@@ -21,3 +21,4 @@ The last statement of each suite returns one row per check with `PASS` / `FAIL`.
 | --- | --- |
 | `mail_composer_test.sql` | 22 – drafts, compose-as-self, immutable sent mail, attachments, cross-org, signatures |
 | `payments_test.sql` | 39 – full/partial/advance, balance, duplicates, excess approval, edit audit, void, roles, isolation |
+| `lead_finder_test.sql` | 29 – Lead Finder access flag, per-user permission, CIN/contact/person duplicates, viewer read-only, cross-org isolation, history |

@@ -9,6 +9,8 @@ export type Membership = {
   role: AppRole;
   status: string;
   organizations: { id: string; name: string; slug: string; timezone: string; daily_email_limit: number };
+  /** Lead Finder / Decision Maker Finder access (owner/admin always; others when granted). */
+  lead_finder_access?: boolean;
 };
 
 export type PendingInvite = { id: string; organization_id: string; role: AppRole };
@@ -45,7 +47,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const organizations = Array.isArray(raw.organizations) ? raw.organizations[0] : raw.organizations;
       return { ...raw, organizations } as Membership;
     });
-    setMemberships(rows.filter((r) => r.organizations));
+    // Loaded separately so the app keeps working if the Lead Finder migration is not applied yet.
+    const { data: flags } = await supabase.from("memberships").select("id, lead_finder_access").eq("user_id", userId).eq("status", "active");
+    const flagById = new Map((flags ?? []).map((f) => [f.id as string, Boolean((f as { lead_finder_access?: boolean }).lead_finder_access)]));
+    setMemberships(
+      rows
+        .filter((r) => r.organizations)
+        .map((r) => ({ ...r, lead_finder_access: r.role === "owner" || r.role === "admin" || flagById.get(r.id) === true })),
+    );
     // Pending invites: the invited user can read their own membership row (RLS allows
     // user_id = auth.uid()) but not the organization row until they accept.
     const { data: pending } = await supabase

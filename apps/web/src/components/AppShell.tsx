@@ -30,6 +30,8 @@ import {
   Moon,
   type LucideIcon,
   Wallet,
+  Radar,
+  UserSearch,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useRef, useState, type RefObject } from "react";
@@ -39,7 +41,7 @@ import { supabase } from "../lib/supabase";
 import { cn, Spinner } from "./ui";
 import { canManageCampaigns } from "@crm/shared";
 
-type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; managersOnly?: boolean };
+type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; managersOnly?: boolean; leadFinder?: boolean };
 
 // Same routes and labels as before, grouped for scannability.
 const navGroups: { title: string; items: NavItem[] }[] = [
@@ -60,6 +62,13 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { to: "/app/quotations", label: "Quotations", icon: Receipt },
       { to: "/app/payments", label: "Payments", icon: Wallet },
       { to: "/app/projects", label: "Projects", icon: FolderKanban },
+    ],
+  },
+  {
+    title: "Lead Finder",
+    items: [
+      { to: "/app/lead-finder", label: "New Companies", icon: Radar, leadFinder: true },
+      { to: "/app/decision-makers", label: "Decision Makers", icon: UserSearch, leadFinder: true },
     ],
   },
   {
@@ -248,7 +257,7 @@ export function AppShell() {
 
         {/* Nav */}
         <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
-          {navGroups.map((group) => ({ ...group, items: group.items.filter((i) => !i.managersOnly || canManageCampaigns(org?.role)) })).map((group) => (
+          {navGroups.map((group) => ({ ...group, items: group.items.filter((i) => (!i.managersOnly || canManageCampaigns(org?.role)) && (!i.leadFinder || org?.lead_finder_access)) })).filter((g) => g.items.length).map((group) => (
             <div key={group.title}>
               <p className={cn("mb-1.5 px-3 text-2xs font-semibold uppercase tracking-[0.08em] text-ink-500", isCollapsed && "lg:hidden")}>
                 {group.title}

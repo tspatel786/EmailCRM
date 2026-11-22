@@ -30,6 +30,8 @@ const ReportsPage = lazy(() => import("./pages/Reports").then((m) => ({ default:
 const TeamPage = lazy(() => import("./pages/Team").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
 const AuditLogsPage = lazy(() => import("./pages/AuditLogs").then((m) => ({ default: m.AuditLogsPage })));
+const LeadFinderPage = lazy(() => import("./pages/LeadFinder").then((m) => ({ default: m.LeadFinderPage })));
+const DecisionMakersPage = lazy(() => import("./pages/DecisionMakers").then((m) => ({ default: m.DecisionMakersPage })));
 const CampaignsPage = lazy(() => import("./pages/Campaigns").then((m) => ({ default: m.CampaignsPage })));
 const CampaignDetailPage = lazy(() => import("./pages/Campaigns").then((m) => ({ default: m.CampaignDetailPage })));
 
@@ -124,6 +126,8 @@ export default function App() {
         <Route path="deals" element={<DealsPage />} />
         <Route path="quotations" element={<QuotationsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
+        <Route path="lead-finder" element={<LeadFinderPage />} />
+        <Route path="decision-makers" element={<DecisionMakersPage />} />
         <Route path="meetings" element={<MeetingsPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="reports" element={<ReportsPage />} />
